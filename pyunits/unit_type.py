@@ -56,7 +56,7 @@ class UnitType(abc.ABC):
 
         self.__unit_class = unit_class
 
-    def __call__(self, *args, **kwargs) -> Type:
+    def __call__(self, *args, **kwargs) -> Unit:
         """
         "Stamps" the unit class so we know what type it is.
         :param args: Will be forwarded to the Unit constructor.
@@ -80,6 +80,3 @@ class UnitType(abc.ABC):
             self.__unit_class.UNIT_TYPE = cls
 
         return self.__unit_class(*args, **kwargs)
-
-
-
