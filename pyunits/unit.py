@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Iterable, Union
 import abc
 
 import numpy as np
@@ -14,7 +14,10 @@ class Unit(abc.ABC):
     # Type of unit this is.
     UNIT_TYPE = None
 
-    def __init__(self, value: Union["Unit", np.ndarray]):
+    # Type alias for what we accept when initializing units.
+    UnitValue = Union["Unit", np.ndarray, int, float, Iterable]
+
+    def __init__(self, value: UnitValue):
         """
         Initializes a new value of this unit.
         :param value: The same value, in some other units.
@@ -32,13 +35,20 @@ class Unit(abc.ABC):
 
         else:
             # We were passed a raw value.
-            self._from_raw(np.asarray(value))
+            self._set_raw(np.asarray(value))
 
     def __str__(self) -> str:
         # Pretty-print the unit.
         return "{} {}".format(self.raw, self.name)
 
-    def _from_raw(self, raw: np.ndarray) -> None:
+    def __eq__(self, other: UnitValue) -> bool:
+        # Convert the other unit before comparing.
+        this_class = self.__class__
+        other_same = this_class(other)
+
+        return np.array_equal(self.raw, other_same.raw)
+
+    def _set_raw(self, raw: np.ndarray) -> None:
         """
         Initializes this class with the given numeric value.
         :param raw: The raw value to use.
@@ -69,9 +79,8 @@ class Unit(abc.ABC):
         return self.__value
 
     @property
-    @abc.abstractmethod
     def name(self) -> str:
         """
         :return: The name of the unit that will be used when printing.
         """
-        pass
+        return self.__class__.__name__
