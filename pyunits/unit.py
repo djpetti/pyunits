@@ -38,13 +38,12 @@ class Unit(abc.ABC):
         # Pretty-print the unit.
         return "{} {}".format(self.raw, self.name)
 
-    @abc.abstractmethod
     def _from_raw(self, raw: np.ndarray) -> None:
         """
         Initializes this class with the given numeric value.
         :param raw: The raw value to use.
         """
-        pass
+        self.__value = raw
 
     @abc.abstractmethod
     def _from_standard(self, standard_value: "Unit") -> None:
@@ -63,12 +62,11 @@ class Unit(abc.ABC):
         pass
 
     @property
-    @abc.abstractmethod
     def raw(self) -> np.ndarray:
         """
         :return: The raw value stored in this class.
         """
-        pass
+        return self.__value
 
     @property
     @abc.abstractmethod

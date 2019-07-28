@@ -24,12 +24,6 @@ class Meters(Unit):
     A meters unit.
     """
 
-    def _from_raw(self, raw: np.ndarray) -> None:
-        """
-        See superclass for documentation.
-        """
-        self.__value = raw
-
     def _from_standard(self, standard_value: "Unit") -> None:
         """
         See superclass for documentation.
@@ -45,13 +39,6 @@ class Meters(Unit):
         return self
 
     @property
-    def raw(self) -> np.ndarray:
-        """
-        See superclass for documentation.
-        """
-        return self.__value
-
-    @property
     def name(self) -> str:
         """
         See superclass for documentation.
@@ -64,12 +51,6 @@ class Centimeters(Unit):
     """
     A centimeters unit.
     """
-
-    def _from_raw(self, raw: np.ndarray) -> None:
-        """
-        See superclass for documentation.
-        """
-        self.__value = raw
 
     def _from_standard(self, standard_value: "Unit") -> None:
         """
@@ -86,13 +67,6 @@ class Centimeters(Unit):
         return Meters(self.raw / 100)
 
     @property
-    def raw(self) -> np.ndarray:
-        """
-        See superclass for documentation.
-        """
-        return self.__value
-
-    @property
     def name(self) -> str:
         """
         See superclass for documentation.
@@ -105,12 +79,6 @@ class Seconds(Unit):
     """
     A seconds unit.
     """
-
-    def _from_raw(self, raw: np.ndarray) -> None:
-        """
-        See superclass for documentation.
-        """
-        self.__value = raw
 
     def _from_standard(self, standard_value: "Unit") -> None:
         """
@@ -125,13 +93,6 @@ class Seconds(Unit):
         """
         # This is the standard unit.
         return self
-
-    @property
-    def raw(self) -> np.ndarray:
-        """
-        See superclass for documentation.
-        """
-        return self.__value
 
     @property
     def name(self) -> str:
