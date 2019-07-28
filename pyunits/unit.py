@@ -61,7 +61,6 @@ class Unit(abc.ABC):
         Initializes this unit from a different unit with a "standard" value.
         :param standard_value: The standard unit to initialize from.
         """
-        pass
 
     @abc.abstractmethod
     def to_standard(self) -> "Unit":
@@ -69,7 +68,6 @@ class Unit(abc.ABC):
         Converts this unit to the standard unit for this unit type.
         :return: The same value in standard units.
         """
-        pass
 
     @property
     def raw(self) -> np.ndarray:

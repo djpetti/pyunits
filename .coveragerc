@@ -1,0 +1,8 @@
+[run]
+omit =
+    # Exclude tests themselves.
+    */tests/*
+    # Exclude venv.
+    venv/*
+    # We don't test examples.
+    examples/*

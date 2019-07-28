@@ -196,3 +196,15 @@ class TestUnit:
         # Arrange done in fixtures.
         # Act and assert.
         assert my_unit.name == _MyUnit.__name__
+
+    def test_str(self, my_unit: _MyUnit) -> None:
+        """
+        Tests that converting a unit to a string works.
+        :param my_unit: The unit instance to test with.
+        """
+        # Arrange done in fixtures.
+        # Act.
+        string_unit = str(my_unit)
+
+        # Assert.
+        assert string_unit == "{} {}".format(my_unit.raw, _MyUnit.__name__)
