@@ -1,12 +1,20 @@
-import numpy as np
-
 from pyunits.unit import Unit
-from pyunits.unit_type import UnitType
+from pyunits.unit_type import UnitType, CastHandler
+
+
+import numpy as np
 
 
 class Length(UnitType):
     """
     Type for length units.
+    """
+    pass
+
+
+class Length2D(UnitType):
+    """
+    Type for 2D length units.
     """
     pass
 
@@ -29,7 +37,7 @@ class Meters(Unit):
         See superclass for documentation.
         """
         # This is the standard unit.
-        self.__value = standard_value.raw
+        self._set_raw(standard_value.raw)
 
     def to_standard(self) -> Unit:
         """
@@ -57,7 +65,7 @@ class Centimeters(Unit):
         See superclass for documentation.
         """
         # Convert from meters.
-        self.__value = standard_value.raw * 100
+        self._set_raw(standard_value.raw * 100)
 
     def to_standard(self) -> Unit:
         """
@@ -85,7 +93,7 @@ class Seconds(Unit):
         See superclass for documentation.
         """
         # This is the standard unit.
-        self.__value = standard_value.raw
+        self._set_raw(standard_value.raw)
 
     def to_standard(self) -> Unit:
         """
@@ -100,3 +108,41 @@ class Seconds(Unit):
         See superclass for documentation.
         """
         return "s"
+
+
+@Length2D
+class Meters2D(Unit):
+    """
+    A unit for a 2D position in meters.
+    """
+
+    def _from_standard(self, standard_value: "Unit") -> None:
+        """
+        See superclass for documentation.
+        """
+        # This is the standard unit.
+        self._set_raw(standard_value.raw)
+
+    def to_standard(self) -> "Unit":
+        """
+        See superclass for documentation.
+        """
+        # This is the standard unit.
+        return self
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "m"
+
+
+@CastHandler(Meters, Meters2D)
+def meters_to_meters2d(meters: Meters) -> np.ndarray:
+    """
+    Cast for meters to 2D meters. Will make the second dimension 0.
+    :param meters: The input, as meters.
+    :return: The raw value to use for the Meters2D instance.
+    """
+    return np.append(meters.raw, 0)

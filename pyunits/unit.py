@@ -1,4 +1,4 @@
-from typing import Iterable, Union
+from typing import Iterable, Type, Union
 import abc
 
 import numpy as np
@@ -82,3 +82,14 @@ class Unit(abc.ABC):
         :return: The name of the unit that will be used when printing.
         """
         return self.__class__.__name__
+
+    def cast_to(self, out_unit: Type) -> "Unit":
+        """
+        Converts this unit to another unit of a different type.
+        :param out_unit: The Unit class that the output should be in the form
+        of.
+        :return: An instance of out_unit containing the converted value of this
+        unit.
+        """
+        out_type = out_unit.__class__
+        return out_unit(self.UNIT_TYPE.cast_to(self, out_type))
