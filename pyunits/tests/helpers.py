@@ -9,6 +9,13 @@ class MyType(UnitType):
     pass
 
 
+class MyOtherType(UnitType):
+    """
+    Another unit type that we can use for testing.
+    """
+    pass
+
+
 class MyStandardUnit(Unit):
     """
     Represents the standard unit for this fake unit system.

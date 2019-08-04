@@ -36,20 +36,6 @@ class UnitType(abc.ABC):
     # indexed by Casts, and the values are functions that perform that cast.
     _DIRECT_CASTS = {}
 
-    @classmethod
-    def register_cast(cls, out_type: Type, handler: CastFunction) -> None:
-        """
-        Registers a new cast that can be performed.
-        :param out_type: The UnitType that we want to be able to convert this
-        one two.
-        :param handler: The function that will perform this cast.
-        """
-        cast = cls.Cast(from_type=cls, to_type=out_type)
-
-        # Add the cast.
-        logger.debug("Registering cast: {}", cast)
-        cls._DIRECT_CASTS[cast] = handler
-
     def __init__(self, unit_class: Type):
         """
         :param unit_class: Allows UnitType classes to be used as class
@@ -83,6 +69,20 @@ class UnitType(abc.ABC):
             self.__unit_class.UNIT_TYPE = cls
 
         return self.__unit_class(*args, **kwargs)
+
+    @classmethod
+    def register_cast(cls, out_type: Type, handler: CastFunction) -> None:
+        """
+        Registers a new cast that can be performed.
+        :param out_type: The UnitType that we want to be able to convert this
+        one too.
+        :param handler: The function that will perform this cast.
+        """
+        cast = cls.Cast(from_type=cls, to_type=out_type)
+
+        # Add the cast.
+        logger.debug("Registering cast: {}", cast)
+        cls._DIRECT_CASTS[cast] = handler
 
     @classmethod
     def as_type(cls, unit: Unit, out_type: Type) -> Unit:

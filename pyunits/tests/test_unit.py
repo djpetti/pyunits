@@ -1,3 +1,5 @@
+import unittest.mock as mock
+
 import numpy as np
 
 import pytest
@@ -167,3 +169,26 @@ class TestUnit:
 
         # Assert.
         assert string_unit == "{} {}".format(my_unit.raw, MyUnit.__name__)
+
+    def test_cast_to(self, my_unit: MyUnit) -> None:
+        """
+        Tests that the casting helper works.
+        :param my_unit: The unit instance to test with.
+        """
+        # Arrange.
+        # Mock an output unit class.
+        out_unit = mock.MagicMock()
+        # Also mock the unit type.
+        my_unit.UNIT_TYPE = mock.Mock()
+
+        # Act.
+        got_unit = my_unit.cast_to(out_unit)
+
+        # Assert.
+        out_type = out_unit.__class__
+        # It should have performed the cast.
+        my_unit.UNIT_TYPE.cast_to.assert_called_once_with(my_unit, out_type)
+
+        # It should have initialized the new unit instance.
+        out_unit.assert_called_once_with(my_unit.UNIT_TYPE.cast_to.return_value)
+        assert got_unit == out_unit.return_value
