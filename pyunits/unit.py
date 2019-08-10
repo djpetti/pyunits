@@ -1,33 +1,33 @@
-from typing import Iterable, Type, Union
 import abc
 
 import numpy as np
 
 from .exceptions import UnitError
+from .types import UnitValue
+from .unit_base import UnitBase
+from .unit_type import UnitType
 
 
-class Unit(abc.ABC):
+class Unit(UnitBase, abc.ABC):
     """
     Base class for all units.
     """
 
-    # Type of unit this is.
-    UNIT_TYPE = None
-
-    # Type alias for what we accept when initializing units.
-    UnitValue = Union["Unit", np.ndarray, int, float, Iterable]
-
-    def __init__(self, value: UnitValue):
+    def __init__(self, unit_type: UnitType, value: UnitValue):
         """
         Initializes a new value of this unit.
-        :param value: The same value, in some other units.
+        :param unit_type: The associated UnitType for this unit.
+        :param value: The same value, in some other units, or as a raw numpy
+        array.
         """
+        super().__init__(unit_type)
+
         if isinstance(value, Unit):
-            if value.UNIT_TYPE != self.UNIT_TYPE:
+            if not value.type.is_compatible(self.type):
                 # We can't initialize a unit from the wrong type.
                 raise UnitError("Cannot convert unit of type {} to unit"
-                                " of type {}.".format(value.UNIT_TYPE,
-                                                      self.UNIT_TYPE))
+                                " of type {}.".format(value.type_class,
+                                                      self.type_class))
 
             # Initialize from the standard type.
             standard = value.to_standard()
@@ -43,7 +43,7 @@ class Unit(abc.ABC):
 
     def __eq__(self, other: UnitValue) -> bool:
         # Convert the other unit before comparing.
-        this_class = self.__class__
+        this_class = self.type
         other_same = this_class(other)
 
         return np.array_equal(self.raw, other_same.raw)
@@ -62,34 +62,23 @@ class Unit(abc.ABC):
         :param standard_value: The standard unit to initialize from.
         """
 
-    @abc.abstractmethod
-    def to_standard(self) -> "Unit":
-        """
-        Converts this unit to the standard unit for this unit type.
-        :return: The same value in standard units.
-        """
-
     @property
     def raw(self) -> np.ndarray:
         """
-        :return: The raw value stored in this class.
+        See superclass for documentation.
         """
         return self.__value
 
     @property
     def name(self) -> str:
         """
-        :return: The name of the unit that will be used when printing.
+        See superclass for documentation.
         """
         return self.__class__.__name__
 
-    def cast_to(self, out_unit: Type) -> "Unit":
+    def cast_to(self, out_unit: UnitType) -> UnitBase:
         """
-        Converts this unit to another unit of a different type.
-        :param out_unit: The Unit class that the output should be in the form
-        of.
-        :return: An instance of out_unit containing the converted value of this
-        unit.
+        See superclass for documentation.
         """
         out_type = out_unit.__class__
-        return out_unit(self.UNIT_TYPE.cast_to(self, out_type))
+        return out_unit(self.type.as_type(self, out_type))

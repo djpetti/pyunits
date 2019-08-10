@@ -4,11 +4,13 @@ import functools
 
 from loguru import logger
 
-from .exceptions import UnitError, CastError
-from .unit import Unit
+from .exceptions import CastError
+from .types import UnitValue
+from . import unit_base
 
 # Type alias for the function that does the casting.
-CastFunction = Callable[[Unit], Unit]
+CastFunction = Callable[["unit_interface.UnitBase"],
+                        "unit_interface.UnitBase"]
 
 
 class UnitType(abc.ABC):
@@ -38,43 +40,27 @@ class UnitType(abc.ABC):
 
     def __init__(self, unit_class: Type):
         """
-        :param unit_class: Allows UnitType classes to be used as class
+        :param unit_class: Allows UnitBaseType classes to be used as class
         decorators for units. This is how we define the type of a unit.
         """
         functools.update_wrapper(self, unit_class)
 
         self.__unit_class = unit_class
 
-    def __call__(self, *args, **kwargs) -> Unit:
+    def __call__(self, *args, **kwargs) -> "unit_base.UnitBase":
         """
         "Stamps" the unit class so we know what type it is.
-        :param args: Will be forwarded to the Unit constructor.
-        :param kwargs: Will be forwarded to the Unit constructor.
-        :return: The Unit object.
+        :param args: Will be forwarded to the UnitBase constructor.
+        :param kwargs: Will be forwarded to the UnitBase constructor.
+        :return: The UnitBase object.
         """
-        cls = self.__class__
-
-        # Stamp the unit class.
-        if self.__unit_class.UNIT_TYPE is not None and \
-                self.__unit_class.UNIT_TYPE != cls:
-            # It already has a type.
-            raise UnitError("Unit {} already has type {}, cannot make it type"
-                            " {}.".format(self.__unit_class.__name__,
-                                          self.__unit_class.UNIT_TYPE.__name__,
-                                          cls.__name__))
-
-        if self.__unit_class.UNIT_TYPE != cls:
-            logger.debug("Registering unit {} as type {}.",
-                         self.__unit_class.__name__, cls.__name__)
-            self.__unit_class.UNIT_TYPE = cls
-
-        return self.__unit_class(*args, **kwargs)
+        return self.__unit_class(self, *args, **kwargs)
 
     @classmethod
     def register_cast(cls, out_type: Type, handler: CastFunction) -> None:
         """
         Registers a new cast that can be performed.
-        :param out_type: The UnitType that we want to be able to convert this
+        :param out_type: The UnitBaseType that we want to be able to convert this
         one too.
         :param handler: The function that will perform this cast.
         """
@@ -85,7 +71,8 @@ class UnitType(abc.ABC):
         cls._DIRECT_CASTS[cast] = handler
 
     @classmethod
-    def as_type(cls, unit: Unit, out_type: Type) -> Unit:
+    def as_type(cls, unit: "unit_base.UnitBase",
+                out_type: Type) -> "unit_base.UnitBase":
         """
         Casts the wrapped unit to a new type.
         :param unit: The unit instance to convert.
@@ -107,19 +94,29 @@ class UnitType(abc.ABC):
         handler = cls._DIRECT_CASTS[cast]
         return handler(unit)
 
+    def is_compatible(self, other: "UnitType") -> bool:
+        """
+        Checks if this type is equivalent to another for the purposes of
+        conversion.
+        :param other: The other type.
+        :return: True if the two are equivalent, false otherwise.
+        """
+        # By default, types are equivalent if they are of the same class.
+        return self.__class__ == other.__class__
+
 
 class CastHandler:
     """
     Decorator for handling unit type casts. It can be used as follows:
 
-    @CastHandler(FirstUnit, SecondUnit)
-    def handle_cast(unit: FirstUnit) -> np.ndarray:
+    @CastHandler(FirstUnitBase, SecondUnit)
+    def handle_cast(unit: FirstUnitBase) -> np.ndarray:
         # Do the conversion and return the value that will be passed to
-        # SecondUnit's ctor.
+        # SecondUnitBase's ctor.
     """
 
     # Type alias for the wrapped handler function.
-    WrappedHandler = Callable[[Unit], Unit.UnitValue]
+    WrappedHandler = Callable[["unit_interface.UnitBase"], UnitValue]
 
     def __init__(self, from_unit: UnitType, to_unit: UnitType):
         """
@@ -127,7 +124,7 @@ class CastHandler:
         :param to_unit: The unit that this handler will produce as output.
         """
 
-        if from_unit.__class__ == to_unit.__class__:
+        if from_unit.is_compatible(to_unit):
             # We don't need a cast for this.
             raise CastError("Units {} and {} are both of type {} and are thus"
                             " directly convertible."
@@ -145,12 +142,13 @@ class CastHandler:
         """
         functools.update_wrapper(self, func)
 
-        def wrapped(to_convert: Unit) -> Unit:
+        def wrapped(to_convert: "unit_base.UnitBase"
+                    ) -> "unit_base.UnitBase":
             """
             Wrapper implementation.
             Does the conversion, ensuring that the input and output are in the
             correct units.
-            :param to_convert: The Unit instance to convert.
+            :param to_convert: The UnitBase instance to convert.
             :return: The converted unit instance.
             """
             # Make sure the input is in the expected units.

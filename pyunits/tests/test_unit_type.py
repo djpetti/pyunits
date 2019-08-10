@@ -29,9 +29,6 @@ class TestUnitType:
         decorator being applied.
         :return: The wrapped unit class.
         """
-        # Clear any previous types set on the unit.
-        MyUnit.UNIT_TYPE = None
-
         return MyType(MyUnit)
 
     def test_wrapping(self, wrapped_unit: MyType) -> None:
@@ -45,38 +42,7 @@ class TestUnitType:
 
         # Assert.
         # The unit type should be correct.
-        assert my_unit.UNIT_TYPE == MyType
-
-    def test_wrapping_already_registered(self, wrapped_unit: MyType) -> None:
-        """
-        Tests that it refuses to change the type of a unit when it is already
-        set.
-        :param wrapped_unit: The decorated unit class.
-        """
-        # Arrange.
-        # Set the type to something incompatible.
-        MyUnit.UNIT_TYPE = _OtherType
-
-        # Act and assert.
-        with pytest.raises(UnitError):
-            wrapped_unit(10)
-
-    def test_double_wrap(self, wrapped_unit: MyType) -> None:
-        """
-        Tests that it properly handles the case where the class has already been
-        decorated with this type.
-        :param wrapped_unit: The decorated unit class.
-        """
-        # Arrange.
-        # Set the type to the same thing.
-        MyUnit.UNIT_TYPE = MyType
-
-        # Act.
-        my_unit = wrapped_unit(10)
-
-        # Assert.
-        # The unit type should still be correct.
-        assert my_unit.UNIT_TYPE == MyType
+        assert my_unit.type == wrapped_unit
 
     def test_as_type(self, wrapped_unit: MyType) -> None:
         """
@@ -95,7 +61,7 @@ class TestUnitType:
         wrapped_unit.register_cast(other_type, handler)
 
         # A fake unit to convert.
-        to_convert = MyUnit(10)
+        to_convert = MyUnit(wrapped_unit, 10)
 
         # Act.
         converted = wrapped_unit.as_type(to_convert, other_type)
@@ -117,12 +83,35 @@ class TestUnitType:
         other_type.__name__ = "OtherType"
 
         # A fake unit to convert.
-        to_convert = MyUnit(10)
+        to_convert = MyUnit(wrapped_unit, 10)
 
         # Act and assert.
         # Conversion should fail since no cast is registered.
         with pytest.raises(CastError):
             wrapped_unit.as_type(to_convert, other_type)
+
+    def test_is_compatible(self, wrapped_unit: MyType) -> None:
+        """
+        Tests that is_compatible works under normal conditions.
+        :param wrapped_unit: The decorated Unit class.
+        """
+        # Arrange.
+        fake_unit_class = mock.Mock(spec=type)
+        # Create an instance of another UnitType.
+        other_type = MyOtherType(fake_unit_class)
+
+        # Create another instance of the same unit type.
+        same_type = MyType(fake_unit_class)
+
+        # Act.
+        compatible_with_other = wrapped_unit.is_compatible(other_type)
+        compatible_with_same = wrapped_unit.is_compatible(same_type)
+
+        # Assert.
+        # It should not be compatible with the other type.
+        assert not compatible_with_other
+        # It should be compatible with the same type.
+        assert compatible_with_same
 
     class TestCastHandler:
         """
@@ -162,6 +151,10 @@ class TestUnitType:
             mock_to_unit = mock.MagicMock(spec=MyOtherType)
             mock_to_unit.__name__ = "MockToUnit"
 
+            # Make it look like the two units are not compatible.
+            mock_to_unit.is_compatible.return_value = False
+            mock_from_unit.is_compatible.return_value = False
+
             # Create the wrapper instance.
             wrapper_class = CastHandler(mock_from_unit, mock_to_unit)
             # Wrap the function.
@@ -190,12 +183,16 @@ class TestUnitType:
             Tests that trying to cast to the input type causes an error.
             :param config: The HandlerConfig to use for this test.
             """
-            # Arrange done in fixture.
+            # Arrange.
+            # Make it look like both units are the same type.
+            config.mock_from_unit.is_compatible.return_value = True
+            config.mock_to_unit.is_compatible.return_value = True
+
             # Act and assert.
-            # Creating the wrapper should fail when both unit are the same
+            # Creating the wrapper should fail when both units are the same
             # type.
             with pytest.raises(CastError):
-                CastHandler(config.mock_from_unit, config.mock_from_unit)
+                CastHandler(config.mock_from_unit, config.mock_to_unit)
 
         def test_wrapped_call(self, config: HandlerConfig) -> None:
             """

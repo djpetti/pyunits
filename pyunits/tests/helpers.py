@@ -55,4 +55,7 @@ class MyUnit(Unit):
         See superclass for documentation.
         :return:
         """
-        return MyStandardUnit(self.raw * self.CONVERSION_FACTOR)
+        # Normally, MyStandardUnit would be wrapped with a UnitType, so we
+        # wouldn't have to manually pass the first parameter. However, for ease-
+        # of-testing, it is not.
+        return MyStandardUnit(self.type, self.raw * self.CONVERSION_FACTOR)
