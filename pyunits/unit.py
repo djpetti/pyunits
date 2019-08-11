@@ -2,9 +2,11 @@ import abc
 
 import numpy as np
 
+from .compound_units import Mul
 from .exceptions import UnitError
 from .types import UnitValue
 from .unit_base import UnitBase
+from .unit_interface import UnitInterface
 from .unit_type import UnitType
 
 
@@ -22,7 +24,7 @@ class Unit(UnitBase, abc.ABC):
         """
         super().__init__(unit_type)
 
-        if isinstance(value, Unit):
+        if isinstance(value, UnitInterface):
             if not value.type.is_compatible(self.type):
                 # We can't initialize a unit from the wrong type.
                 raise UnitError("Cannot convert unit of type {} to unit"
@@ -37,16 +39,14 @@ class Unit(UnitBase, abc.ABC):
             # We were passed a raw value.
             self._set_raw(np.asarray(value))
 
-    def __str__(self) -> str:
-        # Pretty-print the unit.
-        return "{} {}".format(self.raw, self.name)
+    def __mul__(self, other: UnitValue) -> "UnitInterface":
+        if isinstance(other, UnitInterface) \
+                and not other.type.is_compatible(self.type):
+            # This is the special case where we create a compound unit.
+            mul_unit = Mul(self.type, other.type)
+            return mul_unit.apply_to(self, other)
 
-    def __eq__(self, other: UnitValue) -> bool:
-        # Convert the other unit before comparing.
-        this_class = self.type
-        other_same = this_class(other)
-
-        return np.array_equal(self.raw, other_same.raw)
+        return super().__mul__(other)
 
     def _set_raw(self, raw: np.ndarray) -> None:
         """
@@ -56,7 +56,7 @@ class Unit(UnitBase, abc.ABC):
         self.__value = raw
 
     @abc.abstractmethod
-    def _from_standard(self, standard_value: "Unit") -> None:
+    def _from_standard(self, standard_value: UnitInterface) -> None:
         """
         Initializes this unit from a different unit with a "standard" value.
         :param standard_value: The standard unit to initialize from.
@@ -76,7 +76,7 @@ class Unit(UnitBase, abc.ABC):
         """
         return self.__class__.__name__
 
-    def cast_to(self, out_unit: UnitType) -> UnitBase:
+    def cast_to(self, out_unit: UnitType) -> UnitInterface:
         """
         See superclass for documentation.
         """

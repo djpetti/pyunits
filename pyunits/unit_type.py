@@ -6,11 +6,11 @@ from loguru import logger
 
 from .exceptions import CastError
 from .types import UnitValue
-from . import unit_base
+from . import unit_interface
 
 # Type alias for the function that does the casting.
-CastFunction = Callable[["unit_interface.UnitBase"],
-                        "unit_interface.UnitBase"]
+CastFunction = Callable[["unit_interface.UnitInterface"],
+                        "unit_interface.UnitInterface"]
 
 
 class UnitType(abc.ABC):
@@ -47,7 +47,7 @@ class UnitType(abc.ABC):
 
         self.__unit_class = unit_class
 
-    def __call__(self, *args, **kwargs) -> "unit_base.UnitBase":
+    def __call__(self, *args, **kwargs) -> "unit_interface.UnitInterface":
         """
         "Stamps" the unit class so we know what type it is.
         :param args: Will be forwarded to the UnitBase constructor.
@@ -71,8 +71,8 @@ class UnitType(abc.ABC):
         cls._DIRECT_CASTS[cast] = handler
 
     @classmethod
-    def as_type(cls, unit: "unit_base.UnitBase",
-                out_type: Type) -> "unit_base.UnitBase":
+    def as_type(cls, unit: "unit_interface.UnitInterface",
+                out_type: Type) -> "unit_interface.UnitInterface":
         """
         Casts the wrapped unit to a new type.
         :param unit: The unit instance to convert.
@@ -116,7 +116,7 @@ class CastHandler:
     """
 
     # Type alias for the wrapped handler function.
-    WrappedHandler = Callable[["unit_interface.UnitBase"], UnitValue]
+    WrappedHandler = Callable[["unit_interface.UnitInterface"], UnitValue]
 
     def __init__(self, from_unit: UnitType, to_unit: UnitType):
         """
@@ -142,8 +142,8 @@ class CastHandler:
         """
         functools.update_wrapper(self, func)
 
-        def wrapped(to_convert: "unit_base.UnitBase"
-                    ) -> "unit_base.UnitBase":
+        def wrapped(to_convert: "unit_interface.UnitInterface"
+                    ) -> "unit_interface.UnitInterface":
             """
             Wrapper implementation.
             Does the conversion, ensuring that the input and output are in the

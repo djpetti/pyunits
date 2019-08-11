@@ -3,7 +3,6 @@ import unittest.mock as mock
 
 import pytest
 
-from pyunits.unit import UnitError
 from pyunits.unit_type import UnitType, CastHandler
 from pyunits.exceptions import CastError
 from .helpers import MyType, MyUnit, MyOtherType
