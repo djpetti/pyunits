@@ -5,7 +5,7 @@ import functools
 from loguru import logger
 
 from .exceptions import CastError
-from .types import UnitValue
+from . import types
 from . import unit_interface
 
 # Type alias for the function that does the casting.
@@ -116,7 +116,8 @@ class CastHandler:
     """
 
     # Type alias for the wrapped handler function.
-    WrappedHandler = Callable[["unit_interface.UnitInterface"], UnitValue]
+    WrappedHandler = Callable[["unit_interface.UnitInterface"],
+                              "types.UnitValue"]
 
     def __init__(self, from_unit: UnitType, to_unit: UnitType):
         """

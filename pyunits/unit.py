@@ -40,13 +40,7 @@ class Unit(UnitBase, abc.ABC):
             self._set_raw(np.asarray(value))
 
     def __mul__(self, other: UnitValue) -> "UnitInterface":
-        if isinstance(other, UnitInterface) \
-                and not other.type.is_compatible(self.type):
-            # This is the special case where we create a compound unit.
-            mul_unit = Mul(self.type, other.type)
-            return mul_unit.apply_to(self, other)
-
-        return super().__mul__(other)
+        return self._do_mul(Mul, other)
 
     def _set_raw(self, raw: np.ndarray) -> None:
         """
@@ -76,9 +70,9 @@ class Unit(UnitBase, abc.ABC):
         """
         return self.__class__.__name__
 
-    def cast_to(self, out_unit: UnitType) -> UnitInterface:
+    def cast_to(self, out_type: UnitType) -> UnitInterface:
         """
         See superclass for documentation.
         """
-        out_type = out_unit.__class__
-        return out_unit(self.type.as_type(self, out_type))
+        out_type_class = out_type.__class__
+        return out_type(self.type.as_type(self, out_type_class))

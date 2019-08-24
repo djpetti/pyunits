@@ -47,10 +47,10 @@ class UnitInterface(abc.ABC):
         """
 
     @abc.abstractmethod
-    def cast_to(self, out_unit: "unit_type.UnitType") -> "UnitInterface":
+    def cast_to(self, out_type: "unit_type.UnitType") -> "UnitInterface":
         """
         Converts this unit to another unit of a different type.
-        :param out_unit: The Unit class that the output should be in the form
+        :param out_type: The UnitType that the output should be in the form
         of.
         :return: An instance of out_unit containing the converted value of this
         unit.

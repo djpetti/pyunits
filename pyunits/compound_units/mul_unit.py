@@ -1,3 +1,6 @@
+from typing import cast
+import functools
+
 import numpy as np
 
 from ..types import UnitValue
@@ -10,11 +13,11 @@ from . import compound_unit_type
 
 class MulUnit(UnitBase):
     """
-    A pseudo-unit that is produced by the Mul unit-type to represent a compound
+    A pseudo-unit that is produced by a CompoundUnitType to represent a compound
     unit comprised of the multiplication of two other units.
     """
 
-    def __init__(self, unit_type: UnitType,
+    def __init__(self, unit_type: "compound_unit_type.CompoundUnitType",
                  left_unit: UnitInterface, right_unit: UnitInterface):
         """
         :param unit_type: The associated UnitType for this unit.
@@ -26,14 +29,9 @@ class MulUnit(UnitBase):
         self.__left_unit = left_unit
         self.__right_unit = right_unit
 
-    def __mul__(self, other: UnitValue) -> "UnitInterface":
-        if isinstance(other, UnitInterface) \
-                and not other.type.is_compatible(self.type):
-            # Create a (double) compound unit.
-            mul_unit = self.type_class(Operation.MUL, self.type, other.type)
-            return mul_unit.apply_to(self, other)
-
-        return super().__mul__(other)
+    def __mul__(self, other: UnitValue) -> UnitInterface:
+        mul_type = functools.partial(self.type_class, Operation.MUL)
+        return self._do_mul(mul_type, other)
 
     def to_standard(self) -> UnitInterface:
         """
@@ -43,15 +41,9 @@ class MulUnit(UnitBase):
         standard_left = self.__left_unit.to_standard()
         standard_right = self.__right_unit.to_standard()
 
-        # Create a new compound unit for the standard units.
-        left_standard_type = standard_left.__class__
-        right_standard_type = standard_right.__class__
-        # type_class should always be CompoundUnitType.
-        standard_mul = self.type_class(Operation.MUL,
-                                       left_standard_type, right_standard_type)
-
-        # Set the proper value for the standard compound unit.
-        return standard_mul.apply_to(standard_left, standard_right)
+        # Create a new compound unit with the standard unit values.
+        compound_type = cast(compound_unit_type.CompoundUnitType, self.type)
+        return compound_type.apply_to(standard_left, standard_right)
 
     @property
     def raw(self) -> np.ndarray:
@@ -70,21 +62,21 @@ class MulUnit(UnitBase):
         # component units, for instance, Newton-meters is written Nm.
         return "{}{}".format(self.__left_unit.name, self.__right_unit.name)
 
-    def cast_to(self, out_unit: "compound_unit_type.CompoundUnitType"
+    def cast_to(self, out_type: "compound_unit_type.CompoundUnitType"
                 ) -> "MulUnit":
         """
         See superclass for documentation.
         """
         # We'll cast each part of the compound unit individually, assuming we're
         # casting to another compound unit.
-        left_out_class = out_unit.left
-        right_out_class = out_unit.right
+        left_out_class = out_type.left
+        right_out_class = out_type.right
 
         left_casted = self.__left_unit.cast_to(left_out_class)
         right_casted = self.__right_unit.cast_to(right_out_class)
 
         # Create the correct output unit.
-        return out_unit.apply_to(left_casted, right_casted)
+        return out_type.apply_to(left_casted, right_casted)
 
     @property
     def left(self) -> UnitInterface:

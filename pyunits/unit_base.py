@@ -4,7 +4,7 @@ import abc
 import numpy as np
 
 from . import unit_type
-from .types import UnitValue
+from .types import Numeric, UnitValue
 from .unit_interface import UnitInterface
 
 
@@ -30,12 +30,27 @@ class UnitBase(UnitInterface, abc.ABC):
 
         return np.array_equal(self.raw, other_same.raw)
 
-    def __mul__(self, other: UnitValue) -> "UnitInterface":
-        # Convert the other unit before multiplying.
-        this_class = self.type
-        other_same = this_class(other)
+    def _do_mul(self, mul_type: Type, other: UnitValue) -> UnitInterface:
+        """
+        Helper that implements the multiplication operation.
+        :param mul_type: The UnitType class to use for the compound Mul unit.
+        :param other: The unit to multiply by this one.
+        :return: The multiplication of the two units.
+        """
+        if isinstance(other, UnitInterface):
+            if other.type.is_compatible(self.type):
+                # In this case, we'll get some unit squared. Convert both
+                # units to the same type before proceeding.
+                this_class = self.type
+                other = this_class(other)
 
-        return this_class(self.raw * other_same.raw)
+            # Create the compound unit.
+            mul_unit = mul_type(self.type, other.type)
+            return mul_unit.apply_to(self, other)
+
+        else:
+            # A normal numeric value can be directly multiplied.
+            return self.type(self.raw * other)
 
     @property
     def type(self) -> "unit_type.UnitType":

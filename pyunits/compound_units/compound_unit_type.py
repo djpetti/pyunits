@@ -1,3 +1,5 @@
+from typing import cast
+
 from loguru import logger
 
 from ..exceptions import UnitError
@@ -24,6 +26,10 @@ class CompoundUnitType(UnitType):
         self.__left_unit_class = left_unit_class
         self.__right_unit_class = right_unit_class
 
+        logger.debug("Creating new unit type {} with sub-units {} and {}.",
+                     operation, left_unit_class.__name__,
+                     right_unit_class.__name__)
+
         # Functionally, the class we're "wrapping" is MulUnit.
         super().__init__(MulUnit)
 
@@ -41,6 +47,13 @@ class CompoundUnitType(UnitType):
         """
         return self.__right_unit_class
 
+    @property
+    def operation(self) -> Operation:
+        """
+        :return: The operation being applied.
+        """
+        return self.__operation
+
     def apply_to(self, left_unit: UnitInterface,
                  right_unit: UnitInterface) -> MulUnit:
         """
@@ -54,7 +67,8 @@ class CompoundUnitType(UnitType):
         right_unit = self.__right_unit_class(right_unit)
 
         # Initialize the multiplication.
-        return super().__call__(left_unit, right_unit)
+        mul_unit = super().__call__(left_unit, right_unit)
+        return cast(MulUnit, mul_unit)
 
     def __call__(self, value: UnitValue) -> MulUnit:
         """
@@ -63,12 +77,13 @@ class CompoundUnitType(UnitType):
         :return: The Unit object.
         """
         if isinstance(value, UnitInterface):
-            if not isinstance(value, MulUnit):
+            if not self.is_compatible(value.type):
                 # There's no reasonable way for us to convert a non-compound
                 # unit to a compound one.
-                raise UnitError("A multiplied compound unit must be initialized"
-                                " with another, not {}."
-                                .format(value.__class__.__name__))
+                raise UnitError("A compound unit with operation {} must be "
+                                "initialized with another, not {}."
+                                .format(self.operation,
+                                        value.__class__.__name__))
 
             # Initialize using the left and right sub-unit values.
             return self.apply_to(value.left, value.right)
@@ -78,18 +93,23 @@ class CompoundUnitType(UnitType):
             left_unit = self.__left_unit_class(value)
             right_unit = self.__right_unit_class(1)
 
-            return super().__call__(left_unit, right_unit)
+            mul_unit = super().__call__(left_unit, right_unit)
+            return cast(MulUnit, mul_unit)
 
-    def is_compatible(self, other: "CompoundUnitType") -> bool:
+    def is_compatible(self, other: UnitType) -> bool:
         """
         See superclass for documentation.
         """
+        if not isinstance(other, CompoundUnitType):
+            # If it's not a compound unit, it's automatically not compatible.
+            return False
+
         # We don't care which order the sub-units are in.
         sub_units_compatible = other.left.is_compatible(self.left) \
             and other.right.is_compatible(self.right)
         sub_units_compatible |= other.right.is_compatible(self.left) \
             and other.left.is_compatible(self.right)
 
-        # Compound units are compatible if the compound unit type is the same,
-        # and the underlying sub-units have compatible types.
-        return other.__class__ == self.__class__ and sub_units_compatible
+        # Compound units are compatible if the compound unit operation is the
+        # same, and the underlying sub-units have compatible types.
+        return other.operation == self.operation and sub_units_compatible

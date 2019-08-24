@@ -5,9 +5,9 @@ import numpy as np
 
 import pytest
 
-from pyunits.types import UnitValue
-from pyunits.unit import Unit
 from pyunits.exceptions import UnitError
+from pyunits.types import UnitValue
+from pyunits import unit
 from .helpers import MyUnit, MyStandardUnit
 
 
@@ -22,10 +22,12 @@ class TestUnit:
         :param unit: The unit instance under test.
         :param standard_unit: The standard unit instance to test with.
         :param mock_type: The UnitType that the Unit was constructed with.
+        :param mock_mul: The mock compound_units.Mul class.
         """
-        unit: Unit
-        standard_unit: Unit
+        unit: unit.Unit
+        standard_unit: unit.Unit
         mock_type: mock.Mock
+        mock_mul: mock.Mock
 
     @classmethod
     @pytest.fixture(params=[10, 5.0, np.array([1, 2, 3]), [1, 2, 3]])
@@ -40,11 +42,14 @@ class TestUnit:
         unit_type = mock.MagicMock()
         unit_type.is_compatible.return_value = True
 
-        unit = MyUnit(unit_type, request.param)
+        my_unit = MyUnit(unit_type, request.param)
         standard_unit = MyStandardUnit(unit_type, request.param)
 
-        return cls.UnitConfig(unit=unit, standard_unit=standard_unit,
-                              mock_type=unit_type)
+        with mock.patch(unit.__name__ + ".Mul") as mock_mul:
+            yield cls.UnitConfig(unit=my_unit, standard_unit=standard_unit,
+                                 mock_type=unit_type, mock_mul=mock_mul)
+
+            # Finalization done upon exit from context manager.
 
     @pytest.mark.parametrize("unit_value", [10, 5.0, np.array([1, 2, 3]),
                                             [1, 2, 3]])
@@ -217,3 +222,99 @@ class TestUnit:
         # It should have initialized the new unit instance.
         out_unit.assert_called_once_with(config.mock_type.as_type.return_value)
         assert got_unit == out_unit.return_value
+
+    def test_mul_numeric(self, config: UnitConfig) -> None:
+        """
+        Tests that the multiplication operation works correctly when a unit is
+        multiplied by a numeric value.
+        :param config: The configuration to use.
+        """
+        # Arrange.
+        expected_product = config.unit.raw * 5
+
+        # Set up the mocks so that we can correctly make a new unit of the same
+        # type.
+        mock_unit_instance = config.mock_type.return_value
+        mock_raw = mock.PropertyMock(return_value=expected_product)
+        type(mock_unit_instance).raw = mock_raw
+
+        # Act.
+        # Multiply by a numeric value.
+        product = config.unit * 5
+
+        # Assert.
+        # It should have created a new unit of the same type.
+        assert config.mock_type.call_count == 1
+        # It should have been created with the raw product value.
+        my_args, _ = config.mock_type.call_args
+        got_product = my_args[0]
+        np.testing.assert_array_equal(expected_product, got_product)
+
+        assert product == mock_unit_instance
+
+    def test_mul_compatible_unit(self, config: UnitConfig) -> None:
+        """
+        Tests that the multiplication operation works correctly when a unit is
+        multiplied by another with a compatible type.
+        :param config: The configuration to use.
+        """
+        # Arrange.
+        # Make sure converted units have the same type as their parent.
+        converted = config.mock_type.return_value
+        mock_type_property = mock.PropertyMock(return_value=config.mock_type)
+        type(converted).type = mock_type_property
+
+        # Act.
+        product = config.unit * config.standard_unit
+
+        # Assert.
+        # It should have checked compatibility.
+        config.mock_type.is_compatible.assert_called_once_with(config.mock_type)
+
+        # It should have converted the standard unit.
+        config.mock_type.assert_called_once_with(config.standard_unit)
+        # It should have created a new compound unit.
+        config.mock_mul.assert_called_once_with(config.mock_type,
+                                                config.mock_type)
+
+        compound_unit = config.mock_mul.return_value
+        compound_unit.apply_to.assert_called_once_with(config.unit,
+                                                       converted)
+
+        # It should have returned the compound unit.
+        assert product == compound_unit.apply_to.return_value
+
+    def test_mul_incompatible_unit(self, config: UnitConfig) -> None:
+        """
+        Tests that the multiplication operation works correctly when a unit is
+        multiplied by another with an incompatible type.
+        :param config: The configuration to use.
+        """
+        # Arrange.
+        # Create a fake type for the other unit.
+        other_type = mock.Mock()
+        other_type_property = mock.PropertyMock(return_value=other_type)
+        type(config.standard_unit).type = other_type_property
+
+        # Make it look like the types are incompatible.
+        other_type.is_compatible.return_value = False
+
+        # Act.
+        product = config.unit * config.standard_unit
+
+        # Assert.
+        # It should have checked compatibility.
+        other_type.is_compatible.assert_called_once_with(config.mock_type)
+        # It should not have attempted to convert.
+        config.mock_type.assert_not_called()
+
+        # It should have created a new compound unit.
+        config.mock_mul.assert_called_once_with(config.mock_type,
+                                                other_type)
+
+        compound_unit = config.mock_mul.return_value
+        compound_unit.apply_to.assert_called_once_with(config.unit,
+                                                       config.standard_unit)
+
+        # It should have returned the compound unit.
+        assert product == compound_unit.apply_to.return_value
