@@ -4,7 +4,7 @@ import abc
 import numpy as np
 
 from . import unit_type
-from .types import Numeric, UnitValue
+from .types import UnitValue
 from .unit_interface import UnitInterface
 
 
@@ -39,8 +39,8 @@ class UnitBase(UnitInterface, abc.ABC):
         """
         if isinstance(other, UnitInterface):
             if other.type.is_compatible(self.type):
-                # In this case, we'll get some unit squared. Convert both
-                # units to the same type before proceeding.
+                # In this case, we'll get some unit squared. Convert to the
+                # same units before proceeding.
                 this_class = self.type
                 other = this_class(other)
 
@@ -51,6 +51,32 @@ class UnitBase(UnitInterface, abc.ABC):
         else:
             # A normal numeric value can be directly multiplied.
             return self.type(self.raw * other)
+
+    def _do_div(self, div_type: Type, other: UnitValue) -> UnitValue:
+        """
+        Helper that implements the division operation.
+        :param div_type: The UnitType class to use for the compound Div unit.
+        :param other: The unit to divide this one by.
+        :return: The quotient of the two units. Note that this can be a unitless
+        value if the inputs are of the same UnitType.
+        """
+        if isinstance(other, UnitInterface):
+            if other.type.is_compatible(self.type):
+                # In this case, we'll get a unit-less value. Convert to the same
+                # units before proceeding.
+                this_class = self.type
+                other = this_class(other)
+
+                return self.raw / other.raw
+
+            else:
+                # Otherwise, create the compound unit.
+                div_unit = div_type(self.type, other.type)
+                return div_unit.apply_to(self, other)
+
+        else:
+            # A normal numeric value can be directly divided.
+            return self.type(self.raw / other)
 
     @property
     def type(self) -> "unit_type.UnitType":

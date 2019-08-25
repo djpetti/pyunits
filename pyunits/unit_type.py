@@ -5,7 +5,6 @@ import functools
 from loguru import logger
 
 from .exceptions import CastError
-from . import types
 from . import unit_interface
 
 # Type alias for the function that does the casting.
@@ -60,8 +59,8 @@ class UnitType(abc.ABC):
     def register_cast(cls, out_type: Type, handler: CastFunction) -> None:
         """
         Registers a new cast that can be performed.
-        :param out_type: The UnitBaseType that we want to be able to convert this
-        one too.
+        :param out_type: The UnitBaseType that we want to be able to convert
+        this one too.
         :param handler: The function that will perform this cast.
         """
         cast = cls.Cast(from_type=cls, to_type=out_type)
@@ -109,10 +108,10 @@ class CastHandler:
     """
     Decorator for handling unit type casts. It can be used as follows:
 
-    @CastHandler(FirstUnitBase, SecondUnit)
-    def handle_cast(unit: FirstUnitBase) -> np.ndarray:
+    @CastHandler(FirstUnit, SecondUnit)
+    def handle_cast(unit: FirstUnit) -> np.ndarray:
         # Do the conversion and return the value that will be passed to
-        # SecondUnitBase's ctor.
+        # SecondUnit's ctor.
     """
 
     # Type alias for the wrapped handler function.

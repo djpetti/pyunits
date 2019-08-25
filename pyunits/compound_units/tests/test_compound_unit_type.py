@@ -6,7 +6,7 @@ import numpy as np
 
 import pytest
 
-from pyunits.compound_units.mul_unit import MulUnit
+from pyunits.compound_units.compound_unit import CompoundUnit
 from pyunits.compound_units.operations import Operation
 from pyunits.compound_units import compound_unit_type
 from pyunits.exceptions import UnitError
@@ -26,12 +26,13 @@ class TestCompoundUnitType:
         :param compound_type: The CompoundUnitType under test.
         :param mock_left_sub_type: The UnitType of the left operand.
         :param mock_right_sub_type: The UnitType of the right operand.
-        :param mock_mul_unit: The mock MulUnit constructor.
+        :param mock_compound_unit: The mock CompoundUnit subclass that the units
+        we create will be instances of.
         """
         compound_type: compound_unit_type.CompoundUnitType
         mock_left_sub_type: mock.Mock
         mock_right_sub_type: mock.Mock
-        mock_mul_unit: mock.Mock
+        mock_compound_unit: mock.Mock
 
     class TypeIncompatibilities(enum.IntEnum):
         """
@@ -46,7 +47,7 @@ class TestCompoundUnitType:
         DIFFERENT_OPERATIONS = enum.auto()
 
     @classmethod
-    @pytest.fixture(params=[Operation.MUL])
+    @pytest.fixture(params=[Operation.MUL, Operation.DIV])
     def config(cls, request: RequestType) -> UnitConfig:
         """
         Generates configuration for the tests.
@@ -64,19 +65,23 @@ class TestCompoundUnitType:
         left_sub_type.__name__ = "LeftType"
         right_sub_type.__name__ = "RightType"
 
-        with mock.patch(compound_unit_type.__name__ + ".MulUnit", spec=True) \
-                as mock_mul_unit:
-            # Create the compound type to test with.
-            compound_type = compound_unit_type.CompoundUnitType(operation,
-                                                                left_sub_type,
-                                                                right_sub_type)
+        # Stub out the CompoundUnit constructors.
+        mock_mul_unit = mock.Mock()
+        mock_div_unit = mock.Mock()
+        compound_unit_type.CompoundUnitType.OPERATION_TO_CLASS = \
+            {Operation.MUL: mock_mul_unit, Operation.DIV: mock_div_unit}
 
-            yield cls.UnitConfig(compound_type=compound_type,
-                                 mock_left_sub_type=left_sub_type,
-                                 mock_right_sub_type=right_sub_type,
-                                 mock_mul_unit=mock_mul_unit)
+        # Create the compound type to test with.
+        compound_type = compound_unit_type.CompoundUnitType(operation,
+                                                            left_sub_type,
+                                                            right_sub_type)
 
-            # Finalization done implicitly upon exit from context manager.
+        mock_compound_unit = \
+            compound_unit_type.CompoundUnitType.OPERATION_TO_CLASS[operation]
+        return cls.UnitConfig(compound_type=compound_type,
+                              mock_left_sub_type=left_sub_type,
+                              mock_right_sub_type=right_sub_type,
+                              mock_compound_unit=mock_compound_unit)
 
     def test_left_right(self, config: UnitConfig) -> None:
         """
@@ -114,18 +119,18 @@ class TestCompoundUnitType:
         converted_left = config.mock_left_sub_type.return_value
         converted_right = config.mock_right_sub_type.return_value
 
-        # It should have created the MulUnit.
-        config.mock_mul_unit.assert_called_once_with(config.compound_type,
-                                                     converted_left,
-                                                     converted_right)
+        # It should have created the CompoundUnit.
+        config.mock_compound_unit.assert_called_once_with(config.compound_type,
+                                                          converted_left,
+                                                          converted_right)
 
         # It should have returned it.
-        assert compound_unit == config.mock_mul_unit.return_value
+        assert compound_unit == config.mock_compound_unit.return_value
 
     @pytest.mark.parametrize("value", [10, 5.0, (1, 2, 3), np.array([4, 5])])
     def test_call_raw(self, config: UnitConfig, value: UnitValue) -> None:
         """
-        Tests that we can create a MulUnit directly from a raw value.
+        Tests that we can create a CompoundUnit directly from a raw value.
         :param config: The configuration to use for the test.
         :param value: The raw value to use.
         """
@@ -140,21 +145,21 @@ class TestCompoundUnitType:
         left_unit = config.mock_left_sub_type.return_value
         right_unit = config.mock_right_sub_type.return_value
 
-        # It should have created the MulUnit.
-        config.mock_mul_unit.assert_called_once_with(config.compound_type,
-                                                     left_unit, right_unit)
+        # It should have created the CompoundUnit.
+        config.mock_compound_unit.assert_called_once_with(config.compound_type,
+                                                          left_unit, right_unit)
 
         # It should have returned it.
-        assert compound_unit == config.mock_mul_unit.return_value
+        assert compound_unit == config.mock_compound_unit.return_value
 
     def test_call_other(self, config: UnitConfig) -> None:
         """
-        Tests that we can create a MulUnit directly from another one.
+        Tests that we can create a CompoundUnit directly from another one.
         :param config: The configuration to use for the test.
         """
         # Arrange.
         # Create an existing unit.
-        template_unit = mock.Mock(spec=MulUnit)
+        template_unit = mock.Mock(spec=CompoundUnit)
         template_left = template_unit.left
         template_right = template_unit.right
 
@@ -180,23 +185,23 @@ class TestCompoundUnitType:
         converted_left = config.mock_left_sub_type.return_value
         converted_right = config.mock_right_sub_type.return_value
 
-        # It should have created the MulUnit.
-        config.mock_mul_unit.assert_called_once_with(config.compound_type,
-                                                     converted_left,
-                                                     converted_right)
+        # It should have created the CompoundUnit.
+        config.mock_compound_unit.assert_called_once_with(config.compound_type,
+                                                          converted_left,
+                                                          converted_right)
 
         # It should have returned it.
-        assert compound_unit == config.mock_mul_unit.return_value
+        assert compound_unit == config.mock_compound_unit.return_value
 
     def test_call_other_incompatible(self, config: UnitConfig) -> None:
         """
-        Tests that creating a MulUnit from another unit fails when the unit
+        Tests that creating a CompoundUnit from another unit fails when the unit
         has an incompatible type.
         :param config: The configuration to use.
         """
         # Arrange.
         # Create an existing unit.
-        template_unit = mock.Mock(spec=MulUnit)
+        template_unit = mock.Mock(spec=CompoundUnit)
 
         # Mock the type so that it is incompatible.
         mock_type_property = mock.PropertyMock()
@@ -207,11 +212,11 @@ class TestCompoundUnitType:
             config.compound_type(template_unit)
 
     @pytest.mark.parametrize("reverse_sub_units", [False, True])
-    def test_is_compatible(self, config: UnitConfig,
-                           reverse_sub_units: bool) -> None:
+    def test_is_compatible_subunits(self, config: UnitConfig,
+                                    reverse_sub_units: bool) -> None:
         """
-        Tests that is_compatible can determine that two UnitTypes are compatible
-        when they are.
+        Tests that is_compatible can determine when two UnitTypes are compatible
+        with various sub-unit configurations.
         :param config: The configuration to use.
         :param reverse_sub_units: If true, the sub-units will be reversed in the
         unit we are checking, which should technically still be regarded as the
@@ -237,7 +242,7 @@ class TestCompoundUnitType:
             lambda x: x == right_compatible_with
 
         # Make sure the operations are the same.
-        compare_type.operation = Operation.MUL
+        compare_type.operation = config.compound_type.operation
 
         # Act.
         is_compatible = config.compound_type.is_compatible(compare_type)
@@ -245,10 +250,17 @@ class TestCompoundUnitType:
         # Assert.
         # It should have checked sub-unit compatibility.
         compare_type.left.is_compatible.assert_called()
-        compare_type.right.is_compatible.assert_called()
+        if config.compound_type.operation == Operation.MUL:
+            compare_type.right.is_compatible.assert_called()
 
-        # They should be compatible.
-        assert is_compatible
+        if config.compound_type.operation != Operation.MUL \
+                and reverse_sub_units:
+            # In this case, the operation is not commutative and the sub-units
+            # are reversed, so this should be flagged as incompatible.
+            assert not is_compatible
+        else:
+            # They should be compatible.
+            assert is_compatible
 
     @pytest.mark.parametrize("incompatibility",
                              [TypeIncompatibilities.NOT_COMPOUND,
@@ -280,9 +292,9 @@ class TestCompoundUnitType:
 
         if incompatibility == self.TypeIncompatibilities.DIFFERENT_OPERATIONS:
             # Make it look like the operations are different.
-            compare_type.operation = Operation.DIV
+            compare_type.operation = -1
         else:
-            compare_type.operation = Operation.MUL
+            compare_type.operation = config.compound_type.operation
 
         # Act.
         is_compatible = config.compound_type.is_compatible(compare_type)
