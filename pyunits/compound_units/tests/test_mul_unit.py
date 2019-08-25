@@ -169,30 +169,6 @@ class TestMulUnit:
         # It should have returned the compound unit.
         assert product == compound_unit.apply_to.return_value
 
-    def test_to_standard(self, config: UnitConfig) -> None:
-        """
-        Tests that to_standard() works.
-        :param config: The configuration to use.
-        """
-        # Arrange done in fixtures.
-        # Act.
-        standard_unit = config.mul_unit.to_standard()
-
-        # Assert.
-        # It should have standardized both of the sub-units.
-        config.mock_left_unit.to_standard.assert_called_once_with()
-        config.mock_right_unit.to_standard.assert_called_once_with()
-
-        # It should have re-applied the compound unit to the standardized
-        # sub-units.
-        standard_left = config.mock_left_unit.to_standard.return_value
-        standard_right = config.mock_right_unit.to_standard.return_value
-        config.mock_unit_type.apply_to.assert_called_once_with(standard_left,
-                                                               standard_right)
-
-        # It should have returned the new MulUnit.
-        assert standard_unit == config.mock_unit_type.apply_to.return_value
-
     def test_raw(self, config: UnitConfig) -> None:
         """
         Tests that we can successfully get the raw value.
@@ -229,47 +205,3 @@ class TestMulUnit:
 
         # Assert.
         assert name == "Nm"
-
-    def test_cast_to(self, config: UnitConfig) -> None:
-        """
-        Tests that cast_to() works.
-        :param config: The configuration to use.
-        """
-        # Arrange.
-        # Create a unit to cast to.
-        cast_to_type = mock.Mock(spec=CompoundUnitType)
-
-        # Act.
-        casted = config.mul_unit.cast_to(cast_to_type)
-
-        # Assert.
-        # It should have casted the left and right sub-units individually.
-        config.mock_left_unit.cast_to.assert_called_once_with(cast_to_type.left)
-        config.mock_right_unit.cast_to.assert_called_once_with(
-            cast_to_type.right)
-
-        # It should have applied the compound unit to the casted sub-units.
-        left_casted = config.mock_left_unit.cast_to.return_value
-        right_casted = config.mock_right_unit.cast_to.return_value
-        cast_to_type.apply_to.assert_called_once_with(left_casted, right_casted)
-
-        # It should have returned the result.
-        assert casted == cast_to_type.apply_to.return_value
-
-    def test_left(self, config: UnitConfig) -> None:
-        """
-        Tests that getting the left sub-unit works.
-        :param config: The configuration to use.
-        """
-        # Arrange done in fixtures.
-        # Act and assert.
-        assert config.mul_unit.left == config.mock_left_unit
-
-    def test_right(self, config: UnitConfig) -> None:
-        """
-        Tests that getting the right sub-unit works.
-        :param config: The configuration to use.
-        """
-        # Arrange done in fixtures.
-        # Act and assert.
-        assert config.mul_unit.right == config.mock_right_unit
