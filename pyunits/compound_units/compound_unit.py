@@ -1,8 +1,11 @@
 from typing import cast
 import abc
+import functools
 
+from ..types import UnitValue
 from ..unit_base import UnitBase
 from ..unit_interface import UnitInterface
+from .operations import Operation
 from . import compound_unit_type
 
 
@@ -22,6 +25,14 @@ class CompoundUnit(UnitBase, abc.ABC):
 
         self.__left_unit = left_unit
         self.__right_unit = right_unit
+
+    def __mul__(self, other: UnitValue) -> UnitInterface:
+        mul_type = functools.partial(self.type_class, Operation.MUL)
+        return self._do_mul(mul_type, other)
+
+    def __truediv__(self, other: UnitValue) -> UnitValue:
+        div_type = functools.partial(self.type_class, Operation.DIV)
+        return self._do_div(div_type, other)
 
     def to_standard(self) -> UnitInterface:
         """

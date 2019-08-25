@@ -1,13 +1,16 @@
 from typing import NamedTuple, Type
 import unittest.mock as mock
 
+import numpy as np
+
 import pytest
 
 from pyunits.compound_units.compound_unit import CompoundUnit
 from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.compound_units.div_unit import DivUnit
 from pyunits.compound_units.mul_unit import MulUnit
-from pyunits.types import RequestType
+from pyunits.compound_units.operations import Operation
+from pyunits.types import RequestType, UnitValue
 from pyunits.unit_interface import UnitInterface
 
 
@@ -145,3 +148,160 @@ class TestCompoundUnit:
         # Arrange done in fixtures.
         # Act and assert.
         assert config.compound_unit.right == config.mock_right_unit
+
+    @pytest.mark.parametrize("mul_by", [10, 5.0, np.array([1, 2, 3])])
+    def test_mul_numeric(self, config: UnitConfig,
+                         mul_by: UnitValue) -> None:
+        """
+        Tests that the multiplication operation works correctly when a unit is
+        multiplied by a numeric value.
+        :param config: The configuration to use.
+        :param mul_by: Value to multiply by.
+        """
+        # Arrange.
+        # Set the raw value of the sub-units.
+        mock_left_raw = mock.PropertyMock(return_value=2)
+        mock_right_raw = mock.PropertyMock(return_value=3)
+        type(config.mock_left_unit).raw = mock_left_raw
+        type(config.mock_right_unit).raw = mock_right_raw
+
+        if isinstance(config.compound_unit, MulUnit):
+            expected_product = 2 * 3 * mul_by
+        else:
+            expected_product = 2 / 3 * mul_by
+
+        # Act.
+        # Multiply by a numeric value.
+        product = config.compound_unit * mul_by
+
+        # Assert.
+        # It should have created a new unit of the same type.
+        assert config.mock_unit_type.call_count == 1
+        # It should have been created with the raw product value.
+        my_args, _ = config.mock_unit_type.call_args
+        got_product = my_args[0]
+        np.testing.assert_array_equal(expected_product, got_product)
+
+        assert product == config.mock_unit_type.return_value
+
+    @pytest.mark.parametrize("div_by", [10, 5.0, np.array([1, 2, 3])])
+    def test_div_numeric(self, config: UnitConfig,
+                         div_by: UnitValue) -> None:
+        """
+        Tests that the division operation works correctly when a unit is
+        divided by a numeric value.
+        :param config: The configuration to use.
+        :param div_by: Value to divide by.
+        """
+        # Arrange.
+        left_sub_value = div_by * 20
+        right_sub_value = div_by * 3
+
+        # Set the raw value of the sub-units.
+        mock_left_raw = mock.PropertyMock(return_value=left_sub_value)
+        mock_right_raw = mock.PropertyMock(return_value=right_sub_value)
+        type(config.mock_left_unit).raw = mock_left_raw
+        type(config.mock_right_unit).raw = mock_right_raw
+
+        if isinstance(config.compound_unit, MulUnit):
+            expected_quotient = left_sub_value * right_sub_value / div_by
+        else:
+            expected_quotient = left_sub_value / right_sub_value / div_by
+
+        # Act.
+        # Divide by a numeric value.
+        quotient = config.compound_unit / div_by
+
+        # Assert.
+        # It should have created a new unit of the same type.
+        assert config.mock_unit_type.call_count == 1
+        # It should have been created with the raw quotient value.
+        my_args, _ = config.mock_unit_type.call_args
+        got_quotient = my_args[0]
+        np.testing.assert_array_almost_equal(expected_quotient, got_quotient)
+
+        assert quotient == config.mock_unit_type.return_value
+
+    def test_mul_incompatible_unit(self, config: UnitConfig) -> None:
+        """
+        Tests that the multiplication operation works correctly when a unit is
+        multiplied by another with an incompatible type.
+        :param config: The configuration to use.
+        """
+        # Arrange.
+        # Mock the __class__ attribute of the fake CompoundUnitType.
+        mock_unit_type_class = mock.Mock(spec=type)
+        config.mock_unit_type.mock_add_spec(mock_unit_type_class)
+
+        # Make another Unit to multiply by.
+        other_unit = mock.Mock(spec=UnitInterface)
+
+        # Create a fake type for the other unit.
+        other_type = mock.Mock()
+        other_type_property = mock.PropertyMock(return_value=other_type)
+        type(other_unit).type = other_type_property
+
+        # Make it look like the types are incompatible.
+        other_type.is_compatible.return_value = False
+
+        # Act.
+        product = config.compound_unit * other_unit
+
+        # Assert.
+        # It should have checked compatibility.
+        other_type.is_compatible.assert_called_once_with(config.mock_unit_type)
+        # It should not have attempted to convert.
+        config.mock_unit_type.assert_not_called()
+
+        # It should have created a new compound unit.
+        mock_unit_type_class.assert_called_once_with(
+            Operation.MUL, config.mock_unit_type, other_type)
+
+        compound_unit = mock_unit_type_class.return_value
+        compound_unit.apply_to.assert_called_once_with(config.compound_unit,
+                                                       other_unit)
+
+        # It should have returned the compound unit.
+        assert product == compound_unit.apply_to.return_value
+
+    def test_div_incompatible_unit(self, config: UnitConfig) -> None:
+        """
+        Tests that the division operation works correctly when a unit is
+        divided by another with an incompatible type.
+        :param config: The configuration to use.
+        """
+        # Arrange.
+        # Mock the __class__ attribute of the fake CompoundUnitType.
+        mock_unit_type_class = mock.Mock(spec=type)
+        config.mock_unit_type.mock_add_spec(mock_unit_type_class)
+
+        # Make another Unit to divide by.
+        other_unit = mock.Mock(spec=UnitInterface)
+
+        # Create a fake type for the other unit.
+        other_type = mock.Mock()
+        other_type_property = mock.PropertyMock(return_value=other_type)
+        type(other_unit).type = other_type_property
+
+        # Make it look like the types are incompatible.
+        other_type.is_compatible.return_value = False
+
+        # Act.
+        quotient = config.compound_unit / other_unit
+
+        # Assert.
+        # It should have checked compatibility.
+        other_type.is_compatible.assert_called_once_with(config.mock_unit_type)
+        # It should not have attempted to convert.
+        config.mock_unit_type.assert_not_called()
+
+        # It should have created a new compound unit.
+        mock_unit_type_class.assert_called_once_with(
+            Operation.DIV, config.mock_unit_type, other_type)
+
+        compound_unit = mock_unit_type_class.return_value
+        compound_unit.apply_to.assert_called_once_with(config.compound_unit,
+                                                       other_unit)
+
+        # It should have returned the compound unit.
+        assert quotient == compound_unit.apply_to.return_value
