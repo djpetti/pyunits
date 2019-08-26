@@ -8,6 +8,7 @@ import pytest
 from pyunits.exceptions import UnitError
 from pyunits.types import UnitValue
 from pyunits import unit
+from . import math_op_testing
 from .helpers import MyUnit, MyStandardUnit
 
 
@@ -22,12 +23,14 @@ class TestUnit:
         :param unit: The unit instance under test.
         :param standard_unit: The standard unit instance to test with.
         :param mock_type: The UnitType that the Unit was constructed with.
-        :param mock_mul: The mock compound_units.Mul class.
+        :param mock_mul: The mock compound_units.Mul function.
+        :param mock_div: The mock compound_units.Div function.
         """
         unit: unit.Unit
         standard_unit: unit.Unit
         mock_type: mock.Mock
         mock_mul: mock.Mock
+        mock_div: mock.Mock
 
     @classmethod
     @pytest.fixture(params=[10, 5.0, np.array([1, 2, 3]), [1, 2, 3]])
@@ -45,9 +48,12 @@ class TestUnit:
         my_unit = MyUnit(unit_type, request.param)
         standard_unit = MyStandardUnit(unit_type, request.param)
 
-        with mock.patch(unit.__name__ + ".Mul") as mock_mul:
+        with mock.patch(unit.__name__ + ".Mul") as mock_mul, \
+                mock.patch(unit.__name__ + ".Div") as mock_div:
             yield cls.UnitConfig(unit=my_unit, standard_unit=standard_unit,
-                                 mock_type=unit_type, mock_mul=mock_mul)
+                                 mock_type=unit_type,
+                                 mock_mul=mock_mul,
+                                 mock_div=mock_div)
 
             # Finalization done upon exit from context manager.
 
@@ -223,14 +229,16 @@ class TestUnit:
         out_unit.assert_called_once_with(config.mock_type.as_type.return_value)
         assert got_unit == out_unit.return_value
 
-    def test_mul_numeric(self, config: UnitConfig) -> None:
+    @pytest.mark.parametrize("mul_by", [10, 5.0, np.array([1, 2, 3])])
+    def test_mul_numeric(self, config: UnitConfig, mul_by: UnitValue) -> None:
         """
         Tests that the multiplication operation works correctly when a unit is
         multiplied by a numeric value.
         :param config: The configuration to use.
+        :param mul_by: Value to multiply by.
         """
         # Arrange.
-        expected_product = config.unit.raw * 5
+        expected_product = config.unit.raw * mul_by
 
         # Set up the mocks so that we can correctly make a new unit of the same
         # type.
@@ -238,19 +246,30 @@ class TestUnit:
         mock_raw = mock.PropertyMock(return_value=expected_product)
         type(mock_unit_instance).raw = mock_raw
 
-        # Act.
-        # Multiply by a numeric value.
-        product = config.unit * 5
+        # Act and assert.
+        math_op_testing.test_mul_numeric(config.unit, config.mock_type,
+                                         mul_by, expected_product)
 
-        # Assert.
-        # It should have created a new unit of the same type.
-        assert config.mock_type.call_count == 1
-        # It should have been created with the raw product value.
-        my_args, _ = config.mock_type.call_args
-        got_product = my_args[0]
-        np.testing.assert_array_equal(expected_product, got_product)
+    @pytest.mark.parametrize("div_by", [10, 5.0, np.array([1, 2, 3])])
+    def test_div_numeric(self, config: UnitConfig, div_by: UnitValue) -> None:
+        """
+        Tests that the division operation works correctly when a unit is
+        divided by a numeric value.
+        :param config: The configuration to use.
+        :param div_by: Value to divide by.
+        """
+        # Arrange.
+        expected_quotient = config.unit.raw / div_by
 
-        assert product == mock_unit_instance
+        # Set up the mocks so that we can correctly make a new unit of the same
+        # type.
+        mock_unit_instance = config.mock_type.return_value
+        mock_raw = mock.PropertyMock(return_value=expected_quotient)
+        type(mock_unit_instance).raw = mock_raw
+
+        # Act and assert.
+        math_op_testing.test_div_numeric(config.unit, config.mock_type,
+                                         div_by, expected_quotient)
 
     def test_mul_compatible_unit(self, config: UnitConfig) -> None:
         """
@@ -290,31 +309,20 @@ class TestUnit:
         multiplied by another with an incompatible type.
         :param config: The configuration to use.
         """
-        # Arrange.
-        # Create a fake type for the other unit.
-        other_type = mock.Mock()
-        other_type_property = mock.PropertyMock(return_value=other_type)
-        type(config.standard_unit).type = other_type_property
+        # Arrange, act and assert.
+        math_op_testing.test_mul_incompatible_unit(
+            config.unit, config.mock_type, config.mock_mul,
+            passes_op=False
+        )
 
-        # Make it look like the types are incompatible.
-        other_type.is_compatible.return_value = False
-
-        # Act.
-        product = config.unit * config.standard_unit
-
-        # Assert.
-        # It should have checked compatibility.
-        other_type.is_compatible.assert_called_once_with(config.mock_type)
-        # It should not have attempted to convert.
-        config.mock_type.assert_not_called()
-
-        # It should have created a new compound unit.
-        config.mock_mul.assert_called_once_with(config.mock_type,
-                                                other_type)
-
-        compound_unit = config.mock_mul.return_value
-        compound_unit.apply_to.assert_called_once_with(config.unit,
-                                                       config.standard_unit)
-
-        # It should have returned the compound unit.
-        assert product == compound_unit.apply_to.return_value
+    def test_div_incompatible_unit(self, config: UnitConfig) -> None:
+        """
+        Tests that the division operation works correctly when a unit is
+        divided by another with an incompatible type.
+        :param config: The configuration to use.
+        """
+        # Arrange, act and assert.
+        math_op_testing.test_div_incompatible_unit(
+            config.unit, config.mock_type, config.mock_div,
+            passes_op=False
+        )

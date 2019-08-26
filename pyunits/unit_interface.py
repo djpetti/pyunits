@@ -3,6 +3,7 @@ import abc
 
 import numpy as np
 
+from . import types
 from . import unit_type
 
 
@@ -10,6 +11,22 @@ class UnitInterface(abc.ABC):
     """
     Defines the public API that all units must implement.
     """
+
+    @abc.abstractmethod
+    def __mul__(self, other: "types.UnitValue") -> "UnitInterface":
+        """
+        Multiplies this unit with another.
+        :param other: The unit to multiply with.
+        :return: The result of the multiplication.
+        """
+
+    @abc.abstractmethod
+    def __truediv__(self, other: "types.UnitValue") -> "UnitInterface":
+        """
+        Divides this unit by another.
+        :param other: The unit to divide by.
+        :return: The result of the division.
+        """
 
     @property
     @abc.abstractmethod

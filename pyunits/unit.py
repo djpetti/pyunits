@@ -2,7 +2,7 @@ import abc
 
 import numpy as np
 
-from .compound_units import Mul
+from .compound_units import Div, Mul
 from .exceptions import UnitError
 from .types import UnitValue
 from .unit_base import UnitBase
@@ -39,8 +39,11 @@ class Unit(UnitBase, abc.ABC):
             # We were passed a raw value.
             self._set_raw(np.asarray(value))
 
-    def __mul__(self, other: UnitValue) -> "UnitInterface":
+    def __mul__(self, other: UnitValue) -> UnitInterface:
         return self._do_mul(Mul, other)
+
+    def __truediv__(self, other: UnitValue) -> UnitInterface:
+        return self._do_div(Div, other)
 
     def _set_raw(self, raw: np.ndarray) -> None:
         """
