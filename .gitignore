@@ -4,3 +4,4 @@ venv/
 
 # Ignore coverage files.
 htmlcov/
+.coverage

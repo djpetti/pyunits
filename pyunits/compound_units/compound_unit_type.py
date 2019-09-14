@@ -27,16 +27,48 @@ class CompoundUnitType(UnitType):
         :param left_unit_class: The class of the first unit to multiply.
         :param right_unit_class: The class of the second unit to multiply.
         """
+        self.__enforce_compatibility_rules(operation, left_unit_class,
+                                           right_unit_class)
+
         self.__operation = operation
         self.__left_unit_class = left_unit_class
         self.__right_unit_class = right_unit_class
 
         logger.debug("Creating new unit type {} with sub-units {} and {}.",
-                     operation, left_unit_class.__name__,
-                     right_unit_class.__name__)
+                     operation, left_unit_class.__class__.__name__,
+                     right_unit_class.__class__.__name__)
 
-        # Functionally, the class we're "wrapping" is MulUnit.
+        # Functionally, the class we're "wrapping" is CompoundUnit.
         super().__init__(self.OPERATION_TO_CLASS[operation])
+
+    @staticmethod
+    def __enforce_compatibility_rules(operation: Operation,
+                                      left_type: UnitType,
+                                      right_type: UnitType) -> None:
+        """
+        Enforces rules about the compatibility of the two sub-units. These are
+        mostly there to stop us from creating nonsensical units like in / m.
+        :param operation: The operation to perform.
+        :param left_type: The left subtype.
+        :param right_type: The right subtype.
+        """
+        will_accept = True
+        if left_type.is_compatible(right_type):
+            if operation == Operation.DIV:
+                # For division, we allow sub-unit compatibility under no
+                # circumstances.
+                will_accept = False
+
+            elif left_type.__class__ != right_type.__class__:
+                # For multiplication, we only allow it if the two types are
+                # identical, i.e. this is a squared unit.
+                will_accept = False
+
+        if not will_accept:
+            raise UnitError("Sub-units {} and {} should not be compatible with"
+                            " each-other.".format(left_type.__class__.__name__,
+                                                  right_type.__class__.__name__)
+                            )
 
     @property
     def left(self) -> UnitType:

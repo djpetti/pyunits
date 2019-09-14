@@ -58,12 +58,19 @@ class TestCompoundUnitType:
         operation = request.param
 
         # Create the left and right unit types.
-        left_sub_type = mock.MagicMock(spec=UnitType)
-        right_sub_type = mock.MagicMock(spec=UnitType)
+        class LeftType(UnitType):
+            pass
 
-        # Mock the name attribute so logging works.
-        left_sub_type.__name__ = "LeftType"
-        right_sub_type.__name__ = "RightType"
+        class RightType(UnitType):
+            pass
+
+        left_sub_type = mock.MagicMock(spec=LeftType)
+        right_sub_type = mock.MagicMock(spec=RightType)
+
+        # Make it look like the two types are not compatible with each-other,
+        # otherwise CompoundUnitType will yell at us.
+        left_sub_type.is_compatible.return_value = False
+        right_sub_type.is_compatible.return_value = False
 
         # Stub out the CompoundUnit constructors.
         mock_mul_unit = mock.Mock()
@@ -302,3 +309,49 @@ class TestCompoundUnitType:
         # Assert.
         # They should not be compatible.
         assert not is_compatible
+
+    @pytest.mark.parametrize("operation", [Operation.MUL, Operation.DIV])
+    def test_init_compatible(self, config: UnitConfig,
+                             operation: Operation) -> None:
+        """
+        Tests that creating a new CompoundUnitType fails when the sub-types are
+        compatible with each-other.
+        :param config: The configuration to use for the test.
+        :param operation: The operation to use for the test.
+        """
+        # Arrange.
+        # Make it look like the sub-types are compatible.
+        config.mock_right_sub_type.is_compatible.return_value = True
+        config.mock_left_sub_type.is_compatible.return_value = True
+
+        # Act and assert.
+        with pytest.raises(UnitError, match=r"compatible"):
+            compound_unit_type.CompoundUnitType(operation,
+                                                config.mock_left_sub_type,
+                                                config.mock_right_sub_type)
+
+        # It should have checked the compatibility.
+        num_checks = 0
+        num_checks += config.mock_left_sub_type.is_compatible.call_count
+        num_checks += config.mock_right_sub_type.is_compatible.call_count
+        assert num_checks > 0
+
+    def test_init_squared(self, config: UnitConfig) -> None:
+        """
+        Tests that it doesn't complain when we try to create a unit squared
+        compound unit.
+        :param config: The configuration to use for the test.
+        """
+        # Arrange done in fixtures.
+        # Act.
+        # Create a squared CompoundUnitType.
+        squared = compound_unit_type.CompoundUnitType(Operation.MUL,
+                                                      config.mock_left_sub_type,
+                                                      config.mock_left_sub_type)
+
+        # Assert.
+        # It should have checked the compatibility.
+        num_checks = 0
+        num_checks += config.mock_left_sub_type.is_compatible.call_count
+        num_checks += config.mock_right_sub_type.is_compatible.call_count
+        assert num_checks > 0
