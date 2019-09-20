@@ -345,9 +345,9 @@ class TestCompoundUnitType:
         # Arrange done in fixtures.
         # Act.
         # Create a squared CompoundUnitType.
-        squared = compound_unit_type.CompoundUnitType(Operation.MUL,
-                                                      config.mock_left_sub_type,
-                                                      config.mock_left_sub_type)
+        compound_unit_type.CompoundUnitType(Operation.MUL,
+                                            config.mock_left_sub_type,
+                                            config.mock_left_sub_type)
 
         # Assert.
         # It should have checked the compatibility.
