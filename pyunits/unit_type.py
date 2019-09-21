@@ -1,18 +1,18 @@
-from typing import Callable, NamedTuple, Type
-import abc
+from typing import Any, Callable, NamedTuple, Type
 import functools
 
 from loguru import logger
 
 from .exceptions import CastError
 from . import unit_interface
+from .interning import Interned
 
 # Type alias for the function that does the casting.
 CastFunction = Callable[["unit_interface.UnitInterface"],
                         "unit_interface.UnitInterface"]
 
 
-class UnitType(abc.ABC):
+class UnitType(Interned):
     """
     Represents a type of unit.
 
@@ -37,7 +37,7 @@ class UnitType(abc.ABC):
     # indexed by Casts, and the values are functions that perform that cast.
     _DIRECT_CASTS = {}
 
-    def __init__(self, unit_class: Type):
+    def _init_new(self, unit_class: Type) -> None:
         """
         :param unit_class: Allows UnitBaseType classes to be used as class
         decorators for units. This is how we define the type of a unit.
@@ -54,6 +54,17 @@ class UnitType(abc.ABC):
         :return: The UnitBase object.
         """
         return self.__unit_class(self, *args, **kwargs)
+
+    @classmethod
+    def decorate(cls, *args: Any, **kwargs: Any) -> 'UnitType':
+        """
+        Alias for get() that provides a slightly more expressive API when this
+        class is used as a decorator.
+        :param args: Positional arguments that will be forwarded to get().
+        :param kwargs: Keyword arguments that will be forwarded to get().
+        :return: The UnitType that it created.
+        """
+        return cls.get(*args, **kwargs)
 
     @classmethod
     def register_cast(cls, out_type: Type, handler: CastFunction) -> None:

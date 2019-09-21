@@ -26,7 +26,7 @@ class Time(UnitType):
     pass
 
 
-@Length
+@Length.decorate
 class Meters(Unit):
     """
     A meters unit.
@@ -54,7 +54,7 @@ class Meters(Unit):
         return "m"
 
 
-@Length
+@Length.decorate
 class Centimeters(Unit):
     """
     A centimeters unit.
@@ -82,7 +82,7 @@ class Centimeters(Unit):
         return "cm"
 
 
-@Time
+@Time.decorate
 class Seconds(Unit):
     """
     A seconds unit.
@@ -110,7 +110,7 @@ class Seconds(Unit):
         return "s"
 
 
-@Length2D
+@Length2D.decorate
 class Meters2D(Unit):
     """
     A unit for a 2D position in meters.

@@ -57,15 +57,26 @@ class TestCompoundUnitType:
         # The operation that we want to perform.
         operation = request.param
 
-        # Create the left and right unit types.
         class LeftType(UnitType):
-            pass
+
+            def __init__(self):
+                # This is an ugly hack to work around an idiosyncrasy of
+                # Python's mock library: If we try to pass UnitType
+                # sub-classes as specs, then Python calls __init__ when we
+                # invoke the mock, instead of __call__, which is what we want.
+                # We can induce the correct behavior by passing an instance as
+                # the spec instead of the class, but I don't want this test to
+                # depend on the actual UnitType.__init__ method. Hence, the
+                # stubbing-out of __init__ in the subclass.
+                pass
 
         class RightType(UnitType):
-            pass
 
-        left_sub_type = mock.MagicMock(spec=LeftType)
-        right_sub_type = mock.MagicMock(spec=RightType)
+            def __init__(self):
+                pass
+
+        left_sub_type = mock.MagicMock(spec=LeftType())
+        right_sub_type = mock.MagicMock(spec=RightType())
 
         # Make it look like the two types are not compatible with each-other,
         # otherwise CompoundUnitType will yell at us.
@@ -78,10 +89,12 @@ class TestCompoundUnitType:
         compound_unit_type.CompoundUnitType.OPERATION_TO_CLASS = \
             {Operation.MUL: mock_mul_unit, Operation.DIV: mock_div_unit}
 
+        # Ensure that it creates a new unit every time.
+        compound_unit_type.CompoundUnitType.clear_interning_cache()
+
         # Create the compound type to test with.
-        compound_type = compound_unit_type.CompoundUnitType(operation,
-                                                            left_sub_type,
-                                                            right_sub_type)
+        compound_type = compound_unit_type.CompoundUnitType\
+            .get(operation, left_sub_type, right_sub_type)
 
         mock_compound_unit = \
             compound_unit_type.CompoundUnitType.OPERATION_TO_CLASS[operation]
@@ -320,15 +333,17 @@ class TestCompoundUnitType:
         :param operation: The operation to use for the test.
         """
         # Arrange.
+        compound_unit_type.CompoundUnitType.clear_interning_cache()
+
         # Make it look like the sub-types are compatible.
         config.mock_right_sub_type.is_compatible.return_value = True
         config.mock_left_sub_type.is_compatible.return_value = True
 
         # Act and assert.
         with pytest.raises(UnitError, match=r"compatible"):
-            compound_unit_type.CompoundUnitType(operation,
-                                                config.mock_left_sub_type,
-                                                config.mock_right_sub_type)
+            compound_unit_type.CompoundUnitType\
+                .get(operation, config.mock_left_sub_type,
+                     config.mock_right_sub_type)
 
         # It should have checked the compatibility.
         num_checks = 0
@@ -342,12 +357,14 @@ class TestCompoundUnitType:
         compound unit.
         :param config: The configuration to use for the test.
         """
-        # Arrange done in fixtures.
+        # Arrange.
+        compound_unit_type.CompoundUnitType.clear_interning_cache()
+
         # Act.
         # Create a squared CompoundUnitType.
-        compound_unit_type.CompoundUnitType(Operation.MUL,
-                                            config.mock_left_sub_type,
-                                            config.mock_left_sub_type)
+        compound_unit_type.CompoundUnitType\
+            .get(Operation.MUL, config.mock_left_sub_type,
+                 config.mock_left_sub_type)
 
         # Assert.
         # It should have checked the compatibility.
@@ -355,3 +372,36 @@ class TestCompoundUnitType:
         num_checks += config.mock_left_sub_type.is_compatible.call_count
         num_checks += config.mock_right_sub_type.is_compatible.call_count
         assert num_checks > 0
+
+    def test_interning(self, config: UnitConfig) -> None:
+        """
+        Tests that interning works correctly.
+        :param config: The configuration to use for the test.
+        """
+        # Arrange.
+        operation = config.compound_type.operation
+
+        # Act.
+        type2 = compound_unit_type.CompoundUnitType\
+            .get(operation, config.mock_left_sub_type,
+                 config.mock_left_sub_type)
+        # Should be the same as 1.
+        type3 = compound_unit_type.CompoundUnitType\
+            .get(operation, config.mock_left_sub_type,
+                 config.mock_right_sub_type)
+        # Should also be the same as 1 if it is a product.
+        type4 = compound_unit_type.CompoundUnitType\
+            .get(operation, config.mock_right_sub_type,
+                 config.mock_left_sub_type)
+
+        # Assert.
+        # The second type should always be new.
+        assert config.compound_type != type2
+        # The third one should always be the same as the first.
+        assert type3 == config.compound_type
+        # The fourth should only be the same if it is a product, and thus the
+        # argument order doesn't matter.
+        if operation == Operation.MUL:
+            assert type4 == config.compound_type
+        else:
+            assert type4 != config.compound_type

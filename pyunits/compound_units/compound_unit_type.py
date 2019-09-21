@@ -1,4 +1,4 @@
-from typing import cast
+from typing import cast, FrozenSet, Tuple, Union
 
 from loguru import logger
 
@@ -20,8 +20,8 @@ class CompoundUnitType(UnitType):
     # Maps Operations to the corresponding CompoundUnit subclasses.
     OPERATION_TO_CLASS = {Operation.MUL: MulUnit, Operation.DIV: DivUnit}
 
-    def __init__(self, operation: Operation,
-                 left_unit_class: UnitType, right_unit_class: UnitType):
+    def _init_new(self, operation: Operation,
+                  left_unit_class: UnitType, right_unit_class: UnitType):
         """
         :param operation: The operation performed by the compound unit.
         :param left_unit_class: The class of the first unit to multiply.
@@ -35,11 +35,31 @@ class CompoundUnitType(UnitType):
         self.__right_unit_class = right_unit_class
 
         logger.debug("Creating new unit type {} with sub-units {} and {}.",
-                     operation, left_unit_class.__class__.__name__,
+                     operation.name, left_unit_class.__class__.__name__,
                      right_unit_class.__class__.__name__)
 
         # Functionally, the class we're "wrapping" is CompoundUnit.
-        super().__init__(self.OPERATION_TO_CLASS[operation])
+        super()._init_new(self.OPERATION_TO_CLASS[operation])
+
+    @classmethod
+    def _pre_hash(cls, operation: Operation, left_unit_class: UnitType,
+                  right_unit_class: UnitType
+                  ) -> Tuple[Operation, Union[FrozenSet[UnitType],
+                                              Tuple[UnitType, UnitType]]]:
+        """
+        Transforms the arguments passed to get() before they are hashed, mainly
+        so that equivalent product types hash to the same thing. See _init_new()
+        for documentation on the parameters.
+        :return: A tuple containing the arguments, with the left and right
+        sub-types possibly in a set to indicate their lack of ordering.
+        """
+        sub_types = (left_unit_class, right_unit_class)
+        if operation == Operation.MUL:
+            # Multiplication is commutative, so express that by putting the
+            # sub-types in a set.
+            sub_types = frozenset(sub_types)
+
+        return operation, sub_types
 
     @staticmethod
     def __enforce_compatibility_rules(operation: Operation,

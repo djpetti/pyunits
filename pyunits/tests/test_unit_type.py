@@ -28,7 +28,8 @@ class TestUnitType:
         decorator being applied.
         :return: The wrapped unit class.
         """
-        return MyType(MyUnit)
+        MyType.clear_interning_cache()
+        return MyType.decorate(MyUnit)
 
     def test_wrapping(self, wrapped_unit: MyType) -> None:
         """
@@ -97,10 +98,10 @@ class TestUnitType:
         # Arrange.
         fake_unit_class = mock.Mock(spec=type)
         # Create an instance of another UnitType.
-        other_type = MyOtherType(fake_unit_class)
+        other_type = MyOtherType.decorate(fake_unit_class)
 
         # Create another instance of the same unit type.
-        same_type = MyType(fake_unit_class)
+        same_type = MyType.decorate(fake_unit_class)
 
         # Act.
         compatible_with_other = wrapped_unit.is_compatible(other_type)
@@ -141,13 +142,16 @@ class TestUnitType:
             Generates configuration for tests,
             :return: The HandlerConfig that it created.
             """
+            MyType.clear_interning_cache()
+            MyOtherType.clear_interning_cache()
+
             # Create the function to wrap.
             mock_function = mock.Mock()
 
             # Create fake unit classes.
-            mock_from_unit = mock.MagicMock(spec=MyType)
+            mock_from_unit = mock.MagicMock(spec=MyType.decorate(MyUnit))
             mock_from_unit.__name__ = "MockFromUnit"
-            mock_to_unit = mock.MagicMock(spec=MyOtherType)
+            mock_to_unit = mock.MagicMock(spec=MyOtherType.decorate(MyUnit))
             mock_to_unit.__name__ = "MockToUnit"
 
             # Make it look like the two units are not compatible.
