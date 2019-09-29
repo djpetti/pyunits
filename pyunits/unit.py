@@ -4,7 +4,7 @@ import numpy as np
 
 from .compound_units import Div, Mul
 from .exceptions import UnitError
-from .types import UnitValue
+from .types import CompoundTypeFactories, UnitValue
 from .unit_base import UnitBase
 from .unit_interface import UnitInterface
 from .unit_type import UnitType
@@ -14,6 +14,9 @@ class Unit(UnitBase, abc.ABC):
     """
     Base class for all units.
     """
+
+    # The compound type factories that this class will use.
+    COMPOUND_TYPE_FACTORIES = CompoundTypeFactories(mul=Mul, div=Div)
 
     def __init__(self, unit_type: UnitType, value: UnitValue):
         """
@@ -40,10 +43,10 @@ class Unit(UnitBase, abc.ABC):
             self._set_raw(np.asarray(value))
 
     def __mul__(self, other: UnitValue) -> UnitInterface:
-        return self._do_mul(Mul, other)
+        return self._do_mul(self.COMPOUND_TYPE_FACTORIES, other)
 
     def __truediv__(self, other: UnitValue) -> UnitInterface:
-        return self._do_div(Div, other)
+        return self._do_div(self.COMPOUND_TYPE_FACTORIES, other)
 
     def _set_raw(self, raw: np.ndarray) -> None:
         """

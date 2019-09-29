@@ -5,11 +5,11 @@ import numpy as np
 
 import pytest
 
+from pyunits import unit_base
 from pyunits.compound_units.compound_unit import CompoundUnit
 from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.compound_units.div_unit import DivUnit
 from pyunits.compound_units.mul_unit import MulUnit
-from pyunits.compound_units.operations import Operation
 from pyunits.tests import math_op_testing
 from pyunits.types import RequestType, UnitValue
 from pyunits.unit_interface import UnitInterface
@@ -27,11 +27,13 @@ class TestCompoundUnit:
         :param mock_unit_type: The mocked type of the MulUnit.
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
+        :param mock_simplify: The mocked simplify function.
         """
         compound_unit: CompoundUnit
         mock_unit_type: mock.Mock
         mock_left_unit: mock.Mock
         mock_right_unit: mock.Mock
+        mock_simplify: mock.Mock
 
     class ClassSpecificConfig(NamedTuple):
         """
@@ -68,6 +70,9 @@ class TestCompoundUnit:
         """
         # Create the fake unit type.
         mock_unit_type = mock.Mock(spec=CompoundUnitType)
+        # Make sure the get() method returns the same mock instance.
+        mock_unit_type.get.return_value = mock_unit_type
+
         # Create the fake sub-units.
         mock_left_unit = mock.Mock(spec=UnitInterface)
         mock_right_unit = mock.Mock(spec=UnitInterface)
@@ -77,10 +82,18 @@ class TestCompoundUnit:
         my_compound_unit = my_class(mock_unit_type, mock_left_unit,
                                     mock_right_unit)
 
-        return cls.UnitConfig(compound_unit=my_compound_unit,
-                              mock_unit_type=mock_unit_type,
-                              mock_left_unit=mock_left_unit,
-                              mock_right_unit=mock_right_unit)
+        with mock.patch(unit_base.__name__ + ".unit_analysis.simplify") as \
+                mock_simplify:
+            # Make it look like it never simplifies anything.
+            mock_simplify.side_effect = lambda x, _: x
+
+            yield cls.UnitConfig(compound_unit=my_compound_unit,
+                                 mock_unit_type=mock_unit_type,
+                                 mock_left_unit=mock_left_unit,
+                                 mock_right_unit=mock_right_unit,
+                                 mock_simplify=mock_simplify)
+
+            # Finalization done upon exit from context manager.
 
     def test_to_standard(self, config: UnitConfig) -> None:
         """
@@ -210,19 +223,26 @@ class TestCompoundUnit:
     @pytest.mark.parametrize("test_func",
                              [math_op_testing.test_mul_incompatible_unit,
                               math_op_testing.test_div_incompatible_unit])
+    @pytest.mark.parametrize("simplify", [False, True])
     def test_incompatible_unit(self, config: UnitConfig,
-                               test_func: Callable) -> None:
+                               test_func: Callable,
+                               simplify: bool) -> None:
         """
         Tests that arithmetic operations work correctly when the operands have
         incompatible types.
         :param config: The configuration to use.
         :param test_func: The function to use for performing the test.
+        :param simplify: Whether we should simulate simplification of the
+        resulting type.
         """
         # Arrange.
-        # Mock the __class__ attribute of the fake CompoundUnitType.
-        mock_unit_type_class = mock.Mock(spec=type)
-        config.mock_unit_type.mock_add_spec(mock_unit_type_class)
+        # Make it look like the result of to_standard() has an actual value.
+        standardized = config.mock_unit_type.apply_to.return_value
+        mock_raw = mock.PropertyMock(return_value=np.array(5.0))
+        type(standardized).raw = mock_raw
 
         # Act and assert.
         test_func(config.compound_unit, config.mock_unit_type,
-                  mock_unit_type_class, passes_op=True)
+                  config.mock_unit_type.get, config.mock_simplify,
+                  simplify=simplify,
+                  passes_op=True)

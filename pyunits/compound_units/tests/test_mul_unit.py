@@ -36,6 +36,8 @@ class TestMulUnit:
         """
         # Create the fake unit type.
         mock_unit_type = mock.Mock(spec=CompoundUnitType)
+        # Make sure that getting a new instance returns the mock.
+        mock_unit_type.get.return_value = mock_unit_type
         # Create the fake sub-units.
         mock_left_unit = mock.Mock(spec=UnitInterface)
         mock_right_unit = mock.Mock(spec=UnitInterface)
@@ -56,10 +58,6 @@ class TestMulUnit:
         :param config: The configuration to use.
         """
         # Arrange.
-        # Mock the __class__ attribute of the fake CompoundUnitType.
-        mock_unit_type_class = mock.Mock(spec=type)
-        config.mock_unit_type.mock_add_spec(mock_unit_type_class)
-
         # Make another MulUnit to multiply by.
         other_unit = mock.Mock(spec=mul_unit.MulUnit)
 
@@ -81,10 +79,10 @@ class TestMulUnit:
         config.mock_unit_type.assert_called_once_with(other_unit)
         # It should have created a new compound unit.
         # functools.partial() will add an extra argument here.
-        mock_unit_type_class.assert_called_once_with(
+        config.mock_unit_type.get.assert_called_once_with(
             Operation.MUL, config.mock_unit_type, config.mock_unit_type)
 
-        compound_unit = mock_unit_type_class.return_value
+        compound_unit = config.mock_unit_type.get.return_value
         compound_unit.apply_to.assert_called_once_with(config.mul_unit,
                                                        converted)
 

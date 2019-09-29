@@ -8,7 +8,7 @@ import pytest
 from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.compound_units.operations import Operation
 from pyunits.compound_units import unit_analysis
-from pyunits.types import RequestType
+from pyunits.types import RequestType, CompoundTypeFactories
 from pyunits.unit_type import UnitType
 
 
@@ -48,19 +48,23 @@ class TestUnitAnalysis:
         :param denominator: The denominator set to un-flatten.
         :param expected_compound: The expected CompoundUnitType that would
         result.
+        :param type_factories: The compound unit type factories to use.
         """
         numerator: Dict[UnitType, int]
         denominator: Dict[UnitType, int]
         expected_compound: UnitType
+        type_factories: CompoundTypeFactories
 
     class SimplifyTest(NamedTuple):
         """
         Represents a single test-case for the simplify() function.
         :param to_simplify: The CompoundUnitType to simplify.
         :param simplified: The expected simplified type.
+        :param type_factories: The compound unit type factories to use.
         """
         to_simplify: CompoundUnitType
         simplified: CompoundUnitType
+        type_factories: CompoundTypeFactories
 
     @classmethod
     @pytest.fixture
@@ -126,15 +130,7 @@ class TestUnitAnalysis:
                 arg_group = frozenset(arg_group)
             return operation, arg_group
 
-        # Mock the CompoundUnitType constructor so that it uses our fake
-        # Tuple mocks.
-        with mock.patch(unit_analysis.__name__ + ".CompoundUnitType") as \
-                mock_compound_type:
-            mock_compound_type.side_effect = fake_compound_type_factory_impl
-
-            yield fake_compound_type_factory_impl
-
-            # Finalization done implicitly upon exit from context manager.
+        return fake_compound_type_factory_impl
 
     @classmethod
     @pytest.fixture(params=range(7))
@@ -234,32 +230,37 @@ class TestUnitAnalysis:
         simplified2 = real_div(real_mul(type1, type2), real_mul(type3, type4))
         simplified3 = real_div(type1, real_div(type2, type1))
 
+        # All simplify tests should use the fake compound unit type factories.
+        fake_type_factories = CompoundTypeFactories(mul=fake_mul, div=fake_div)
+        simplify_test = functools.partial(cls.SimplifyTest,
+                                          type_factories=fake_type_factories)
+
         # The list of tests that we want to perform. We use ordered dict for
         # the attributes here because the iteration order can change the results
         # of un_flatten(), and we want them to be consistent.
         simplify_tests = [
            # When no simplification is necessary. In these cases, we should
            # just return the input.
-           cls.SimplifyTest(to_simplify=simplified1, simplified=simplified1),
-           cls.SimplifyTest(to_simplify=simplified2, simplified=simplified2),
-           cls.SimplifyTest(to_simplify=simplified3, simplified=simplified3),
+           simplify_test(to_simplify=simplified1, simplified=simplified1),
+           simplify_test(to_simplify=simplified2, simplified=simplified2),
+           simplify_test(to_simplify=simplified3, simplified=simplified3),
            # Simple simplification cases.
-           cls.SimplifyTest(to_simplify=real_div(real_mul(type1, type2),
-                                                 real_mul(type2, type3)),
-                            simplified=fake_div(type1, type3)),
-           cls.SimplifyTest(to_simplify=real_div(real_mul(
+           simplify_test(to_simplify=real_div(real_mul(type1, type2),
+                                              real_mul(type2, type3)),
+                         simplified=fake_div(type1, type3)),
+           simplify_test(to_simplify=real_div(real_mul(
                real_mul(type1, type1),
                type2,
            ), type1),
                             simplified=fake_mul(type1, type2)),
            # Nested divisions.
-           cls.SimplifyTest(to_simplify=real_div(real_div(type1, type2),
-                                                 real_div(type3, type2)),
-                            simplified=fake_div(type1, type3)),
-           cls.SimplifyTest(to_simplify=real_div(real_div(
+           simplify_test(to_simplify=real_div(real_div(type1, type2),
+                                              real_div(type3, type2)),
+                         simplified=fake_div(type1, type3)),
+           simplify_test(to_simplify=real_div(real_div(
                type2, real_mul(type1, type1)),
                real_div(type3, type1)),
-                            simplified=fake_div(type2, fake_mul(type1, type3))),
+                         simplified=fake_div(type2, fake_mul(type1, type3))),
         ]
 
         return simplify_tests[test_index]
@@ -290,52 +291,58 @@ class TestUnitAnalysis:
         div_factory = functools.partial(fake_compound_type_factory,
                                         Operation.DIV)
 
+        # All un-flatten tests should use the fake compound unit type factories.
+        fake_type_factories = CompoundTypeFactories(mul=mul_factory,
+                                                    div=div_factory)
+        un_flatten_test = functools.partial(cls.UnFlattenTest,
+                                            type_factories=fake_type_factories)
+
         # The list of tests that we want to perform. We use ordered dict for
         # the attributes here because the iteration order can change the results
         # of un_flatten(), and we want them to be consistent.
         un_flatten_tests = [
             # When we have no denominator.
-            cls.UnFlattenTest(numerator=od({type1: 1}), denominator={},
-                              expected_compound=type1),
-            cls.UnFlattenTest(numerator=od({type1: 2}), denominator={},
-                              expected_compound=mul_factory(type1, type1)),
+            un_flatten_test(numerator=od({type1: 1}), denominator={},
+                            expected_compound=type1),
+            un_flatten_test(numerator=od({type1: 2}), denominator={},
+                            expected_compound=mul_factory(type1, type1)),
             # When we do have a denominator.
-            cls.UnFlattenTest(numerator=od({type1: 1}),
-                              denominator=od({type2: 2}),
-                              expected_compound=div_factory(
-                                  type1,
-                                  mul_factory(type2, type2))),
-            cls.UnFlattenTest(numerator=od({type1: 1, type2: 1}),
-                              denominator=od({type3: 2}),
-                              expected_compound=div_factory(
-                                  mul_factory(type1, type2),
-                                  mul_factory(type3, type3),
-                              )),
+            un_flatten_test(numerator=od({type1: 1}),
+                            denominator=od({type2: 2}),
+                            expected_compound=div_factory(
+                                type1,
+                                mul_factory(type2, type2))),
+            un_flatten_test(numerator=od({type1: 1, type2: 1}),
+                            denominator=od({type3: 2}),
+                            expected_compound=div_factory(
+                                mul_factory(type1, type2),
+                                mul_factory(type3, type3),
+                            )),
             # When we have nested products.
-            cls.UnFlattenTest(numerator=od({type1: 2, type2: 2}),
-                              denominator=od({type3: 2, type4: 2}),
-                              expected_compound=div_factory(
-                                 mul_factory(
-                                     mul_factory(type1, type1),
-                                     mul_factory(type2, type2)
-                                 ),
-                                 mul_factory(
-                                     mul_factory(type3, type3),
-                                     mul_factory(type4, type4)
-                                 )
-                              )),
-            cls.UnFlattenTest(numerator=od({type1: 2, type2: 1}),
-                              denominator=od({type3: 1, type4: 2}),
-                              expected_compound=div_factory(
-                                  mul_factory(
-                                      mul_factory(type1, type2),
-                                      type1,
-                                  ),
-                                  mul_factory(
-                                      mul_factory(type4, type4),
-                                      type3,
-                                  )
-                              )),
+            un_flatten_test(numerator=od({type1: 2, type2: 2}),
+                            denominator=od({type3: 2, type4: 2}),
+                            expected_compound=div_factory(
+                                mul_factory(
+                                    mul_factory(type1, type1),
+                                    mul_factory(type2, type2)
+                                ),
+                                mul_factory(
+                                    mul_factory(type3, type3),
+                                    mul_factory(type4, type4)
+                                )
+                            )),
+            un_flatten_test(numerator=od({type1: 2, type2: 1}),
+                            denominator=od({type3: 1, type4: 2}),
+                            expected_compound=div_factory(
+                                mul_factory(
+                                    mul_factory(type1, type2),
+                                    type1,
+                                ),
+                                mul_factory(
+                                    mul_factory(type4, type4),
+                                    type3,
+                                )
+                            )),
         ]
 
         return un_flatten_tests[test_index]
@@ -363,7 +370,9 @@ class TestUnitAnalysis:
         # Act.
         compound = unit_analysis.un_flatten(
             un_flatten_test_case.numerator,
-            un_flatten_test_case.denominator)
+            un_flatten_test_case.denominator,
+            un_flatten_test_case.type_factories,
+        )
 
         # Assert.
         assert compound == un_flatten_test_case.expected_compound
@@ -375,7 +384,8 @@ class TestUnitAnalysis:
         """
         # Arrange done in fixtures.
         # Act.
-        simplified = unit_analysis.simplify(simplify_test_case.to_simplify)
+        simplified = unit_analysis.simplify(simplify_test_case.to_simplify,
+                                            simplify_test_case.type_factories)
 
         # Assert.
         assert simplified == simplify_test_case.simplified

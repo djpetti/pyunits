@@ -1,55 +1,41 @@
 from typing import Any, cast, Dict, Iterable, List, Mapping, Tuple
-import functools
 
 from ..unit_type import UnitType
-from .compound_unit_type import CompoundUnitType
+from ..types import CompoundTypeFactories
+from . import compound_unit_type
 from .operations import Operation
 
 
-@functools.singledispatch
-def _is_product(to_check: Any) -> bool:  # pragma: no cover
+def _is_product(to_check: Any) -> bool:
     """
     Checks whether something represents a product of two other units.
     :param to_check: The argument to check
     :return: True if it is a product, false otherwise.
     """
-    # Not covered because this is essentially an assertion.
-    raise NotImplementedError("_is_product() can only be used on UnitTypes.")
+    # This would be an ideal use for singledispatch. Unfortunately, we can't
+    # do that, because importing CompoundUnitType here would create a circular
+    # reference.
+    if getattr(to_check, "operation", None) == Operation.MUL:
+        return True
 
-
-@_is_product.register
-def _(to_check: UnitType) -> bool:
     # A normal UnitType does not represent a product.
     return False
 
 
-@_is_product.register
-def _(to_check: CompoundUnitType) -> bool:
-    # A CompoundUnitType can be a product if it has the right operation.
-    return to_check.operation == Operation.MUL
-
-
-@functools.singledispatch
 def _is_fraction(to_check: Any) -> bool:  # pragma: no cover
     """
     Checks whether something represents one unit divided by another.
     :param to_check: The argument to check.
     :return: True if it is a fraction, false otherwise.
     """
-    # Not covered because this is essentially an assertion.
-    raise NotImplementedError("_is_fraction() can only be used on UnitTypes.")
+    # This would be an ideal use for singledispatch. Unfortunately, we can't
+    # do that, because importing CompoundUnitType here would create a circular
+    # reference.
+    if getattr(to_check, "operation", None) == Operation.DIV:
+        return True
 
-
-@_is_fraction.register
-def _(to_check: UnitType) -> bool:
     # A normal UnitType does not represent a fraction.
     return False
-
-
-@_is_fraction.register
-def _(to_check: CompoundUnitType) -> bool:
-    # A CompoundUnitType can be a fraction if it has the right operation.
-    return to_check.operation == Operation.DIV
 
 
 def flatten(to_flatten: UnitType) -> Tuple[Dict[UnitType, int],
@@ -80,7 +66,8 @@ def flatten(to_flatten: UnitType) -> Tuple[Dict[UnitType, int],
         """
         # We can cast presumptively because it doesn't actually perform a
         # runtime check.
-        as_compound = cast(CompoundUnitType, maybe_compound)
+        as_compound = cast('compound_unit_type.CompoundUnitType',
+                           maybe_compound)
 
         # Decide what goes on what side of the rational expression.
         same_side = expandable_numerator
@@ -123,12 +110,15 @@ def flatten(to_flatten: UnitType) -> Tuple[Dict[UnitType, int],
 
 
 def un_flatten(numerator: Mapping[UnitType, int],
-               denominator: Mapping[UnitType, int]) -> UnitType:
+               denominator: Mapping[UnitType, int],
+               type_factories: CompoundTypeFactories) -> UnitType:
     """
     Converts flattened sets of numerator and denominator types to a single
     CompoundUnitType.
     :param numerator: The set of numerator types with corresponding powers.
     :param denominator: The set of denominator types with corresponding powers.
+    :param type_factories: The factories that we will use for creating new
+    CompoundUnitTypes.
     :return: The CompoundUnitType it created.
     """
     def build_product(operands: Iterable[UnitType]) -> UnitType:
@@ -149,8 +139,7 @@ def un_flatten(numerator: Mapping[UnitType, int],
                 next_reduced = to_reduce.pop()
                 if to_reduce:
                     mul_with = to_reduce.pop()
-                    next_reduced = CompoundUnitType(Operation.MUL, next_reduced,
-                                                    mul_with)
+                    next_reduced = type_factories.mul(next_reduced, mul_with)
                 reduced.append(next_reduced)
 
         return reduced[0]
@@ -179,10 +168,11 @@ def un_flatten(numerator: Mapping[UnitType, int],
 
     prod_denominator = build_product(denominator)
     # Perform the final division.
-    return CompoundUnitType(Operation.DIV, prod_numerator, prod_denominator)
+    return type_factories.div(prod_numerator, prod_denominator)
 
 
-def simplify(to_simplify: CompoundUnitType) -> UnitType:
+def simplify(to_simplify: 'compound_unit_type.CompoundUnitType',
+             type_factories: CompoundTypeFactories) -> UnitType:
     """
     Takes an input, and puts it in the simplest possible form. For instance,
     we pass it CompoundUnitType representing (m * s) / s ^ 2, it would return a
@@ -195,6 +185,8 @@ def simplify(to_simplify: CompoundUnitType) -> UnitType:
     m. However, this would change the raw value of any instances of the input
     unit type. Therefore, we do not make this simplification automatically.
     :param to_simplify: The UnitType to simplify.
+    :param type_factories: The factories that we will use for creating new
+    CompoundUnitTypes.
     :return: If no simplification can be performed, it simply returns the input.
     Otherwise, it returns a new, equivalent CompoundUnitType in the simplest
     form possible.
@@ -229,4 +221,4 @@ def simplify(to_simplify: CompoundUnitType) -> UnitType:
             numerator.pop(unit_type)
 
     # Convert into a new CompoundUnitType.
-    return un_flatten(numerator, denominator)
+    return un_flatten(numerator, denominator, type_factories)

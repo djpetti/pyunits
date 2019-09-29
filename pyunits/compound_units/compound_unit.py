@@ -2,7 +2,7 @@ from typing import cast
 import abc
 import functools
 
-from ..types import UnitValue
+from ..types import CompoundTypeFactories, UnitValue
 from ..unit_base import UnitBase
 from ..unit_interface import UnitInterface
 from .operations import Operation
@@ -26,13 +26,21 @@ class CompoundUnit(UnitBase, abc.ABC):
         self.__left_unit = left_unit
         self.__right_unit = right_unit
 
+    def __get_type_factories(self) -> CompoundTypeFactories:
+        """
+        Helper function that creates the proper CompoundTypeFactories
+        record for this class.
+        :return: The CompoundTypeFactories that it created.
+        """
+        mul_type = functools.partial(self.type.get, Operation.MUL)
+        div_type = functools.partial(self.type.get, Operation.DIV)
+        return CompoundTypeFactories(mul=mul_type, div=div_type)
+
     def __mul__(self, other: UnitValue) -> UnitInterface:
-        mul_type = functools.partial(self.type_class, Operation.MUL)
-        return self._do_mul(mul_type, other)
+        return self._do_mul(self.__get_type_factories(), other)
 
     def __truediv__(self, other: UnitValue) -> UnitValue:
-        div_type = functools.partial(self.type_class, Operation.DIV)
-        return self._do_div(div_type, other)
+        return self._do_div(self.__get_type_factories(), other)
 
     def to_standard(self) -> UnitInterface:
         """

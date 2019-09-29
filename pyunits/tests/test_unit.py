@@ -6,8 +6,9 @@ import numpy as np
 import pytest
 
 from pyunits.exceptions import UnitError
-from pyunits.types import UnitValue
+from pyunits.types import CompoundTypeFactories, UnitValue
 from pyunits import unit
+from pyunits import unit_base
 from . import math_op_testing
 from .helpers import MyUnit, MyStandardUnit
 
@@ -20,17 +21,19 @@ class TestUnit:
     class UnitConfig(NamedTuple):
         """
         Configuration for the tests.
-        :param unit: The unit instance under test.
         :param standard_unit: The standard unit instance to test with.
+        :param unit: The unit instance under test.
         :param mock_type: The UnitType that the Unit was constructed with.
         :param mock_mul: The mock compound_units.Mul function.
         :param mock_div: The mock compound_units.Div function.
+        :param mock_simplify: The mock simplify function.
         """
-        unit: unit.Unit
         standard_unit: unit.Unit
+        unit: unit.Unit
         mock_type: mock.Mock
         mock_mul: mock.Mock
         mock_div: mock.Mock
+        mock_simplify: mock.Mock
 
     @classmethod
     @pytest.fixture(params=[10, 5.0, np.array([1, 2, 3]), [1, 2, 3]])
@@ -48,12 +51,22 @@ class TestUnit:
         my_unit = MyUnit(unit_type, request.param)
         standard_unit = MyStandardUnit(unit_type, request.param)
 
-        with mock.patch(unit.__name__ + ".Mul") as mock_mul, \
-                mock.patch(unit.__name__ + ".Div") as mock_div:
+        # Replace the compound type factories with mocks.
+        mock_mul = mock.Mock()
+        mock_div = mock.Mock()
+        unit.Unit.COMPOUND_TYPE_FACTORIES = CompoundTypeFactories(mul=mock_mul,
+                                                                  div=mock_div)
+
+        with mock.patch(unit_base.__name__ + ".unit_analysis.simplify") as \
+                mock_simplify:
+            # Make it look like it never simplifies anything.
+            mock_simplify.side_effect = lambda x, _: x
+
             yield cls.UnitConfig(unit=my_unit, standard_unit=standard_unit,
                                  mock_type=unit_type,
                                  mock_mul=mock_mul,
-                                 mock_div=mock_div)
+                                 mock_div=mock_div,
+                                 mock_simplify=mock_simplify)
 
             # Finalization done upon exit from context manager.
 
@@ -297,32 +310,46 @@ class TestUnit:
                                                 config.mock_type)
 
         compound_unit = config.mock_mul.return_value
+        # It should have simplified the unit type.
+        config.mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
         compound_unit.apply_to.assert_called_once_with(config.unit,
                                                        converted)
 
         # It should have returned the compound unit.
         assert product == compound_unit.apply_to.return_value
 
-    def test_mul_incompatible_unit(self, config: UnitConfig) -> None:
+    @pytest.mark.parametrize("simplify", [False, True])
+    def test_mul_incompatible_unit(self, config: UnitConfig,
+                                   simplify: bool) -> None:
         """
         Tests that the multiplication operation works correctly when a unit is
         multiplied by another with an incompatible type.
         :param config: The configuration to use.
+        :param simplify: Whether we should simulate simplification of the
+        resulting type.
         """
         # Arrange, act and assert.
         math_op_testing.test_mul_incompatible_unit(
             config.unit, config.mock_type, config.mock_mul,
+            config.mock_simplify,
+            simplify=simplify,
             passes_op=False
         )
 
-    def test_div_incompatible_unit(self, config: UnitConfig) -> None:
+    @pytest.mark.parametrize("simplify", [False, True])
+    def test_div_incompatible_unit(self, config: UnitConfig,
+                                   simplify: bool) -> None:
         """
         Tests that the division operation works correctly when a unit is
         divided by another with an incompatible type.
         :param config: The configuration to use.
+        :param simplify: Whether we should simulate simplification of the
+        resulting type.
         """
         # Arrange, act and assert.
         math_op_testing.test_div_incompatible_unit(
             config.unit, config.mock_type, config.mock_div,
+            config.mock_simplify,
+            simplify=simplify,
             passes_op=False
         )

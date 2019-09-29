@@ -35,6 +35,8 @@ class TestDivUnit:
         """
         # Create the fake unit type.
         mock_unit_type = mock.Mock(spec=CompoundUnitType)
+        # Make sure that getting a new instance returns the mock.
+        mock_unit_type.get.return_value = mock_unit_type
         # Create the fake sub-units.
         mock_left_unit = mock.Mock(spec=UnitInterface)
         mock_right_unit = mock.Mock(spec=UnitInterface)
@@ -50,15 +52,11 @@ class TestDivUnit:
 
     def test_div_compatible_unit(self, config: UnitConfig) -> None:
         """
-        Tests that the multiplication operation works correctly when a unit is
+        Tests that the division operation works correctly when a unit is
         divided by another with a compatible type.
         :param config: The configuration to use.
         """
         # Arrange.
-        # Mock the __class__ attribute of the fake CompoundUnitType.
-        mock_unit_type_class = mock.Mock(spec=type)
-        config.mock_unit_type.mock_add_spec(mock_unit_type_class)
-
         # Set the raw value of the sub-units.
         mock_left_raw = mock.PropertyMock(return_value=100)
         mock_right_raw = mock.PropertyMock(return_value=5)
