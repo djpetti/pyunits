@@ -3,6 +3,7 @@ import unittest.mock as mock
 
 import pytest
 
+from pyunits import unit_base
 from pyunits.compound_units import div_unit
 from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.unit_interface import UnitInterface
@@ -20,11 +21,13 @@ class TestDivUnit:
         :param mock_unit_type: The mocked type of the MulUnit.
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
+        :param mock_unitless_class: The mocked Unitless class.
         """
         div_unit: div_unit.DivUnit
         mock_unit_type: mock.Mock
         mock_left_unit: mock.Mock
         mock_right_unit: mock.Mock
+        mock_unitless_class: mock.Mock
 
     @classmethod
     @pytest.fixture
@@ -45,10 +48,14 @@ class TestDivUnit:
         my_div_unit = div_unit.DivUnit(mock_unit_type, mock_left_unit,
                                        mock_right_unit)
 
-        return cls.UnitConfig(div_unit=my_div_unit,
-                              mock_unit_type=mock_unit_type,
-                              mock_left_unit=mock_left_unit,
-                              mock_right_unit=mock_right_unit)
+        with mock.patch(unit_base.__name__ + ".Unitless") as mock_unitless:
+            yield cls.UnitConfig(div_unit=my_div_unit,
+                                 mock_unit_type=mock_unit_type,
+                                 mock_left_unit=mock_left_unit,
+                                 mock_right_unit=mock_right_unit,
+                                 mock_unitless_class=mock_unitless)
+
+            # Finalization done implicitly upon exit from context manager.
 
     def test_div_compatible_unit(self, config: UnitConfig) -> None:
         """
@@ -89,7 +96,8 @@ class TestDivUnit:
         config.mock_unit_type.assert_called_once_with(other_unit)
 
         # It should have returned a unitless value.
-        assert quotient == pytest.approx(expected_quotient)
+        config.mock_unitless_class.assert_called_once_with(expected_quotient)
+        assert quotient == config.mock_unitless_class.return_value
 
     def test_raw(self, config: UnitConfig) -> None:
         """

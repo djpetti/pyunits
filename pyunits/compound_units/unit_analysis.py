@@ -1,5 +1,6 @@
 from typing import Any, cast, Dict, Iterable, List, Mapping, Tuple
 
+from ..unitless import Unitless, UnitlessType
 from ..unit_type import UnitType
 from ..types import CompoundTypeFactories
 from . import compound_unit_type
@@ -36,6 +37,40 @@ def _is_fraction(to_check: Any) -> bool:  # pragma: no cover
 
     # A normal UnitType does not represent a fraction.
     return False
+
+
+def _collapse_unitless(product: Mapping[UnitType, int],
+                       remove_all: bool = False,
+                       ) -> Tuple[bool, Dict[UnitType, int]]:
+    """
+    Removes redundant unitless types from a product of unit types.
+    :param product: The product of unit types, as a map where each key is one
+    of the types being multiplied, and the value is the power for that type.
+    :param remove_all: If False, it will always leave at least 1 UnitlessType.
+    Otherwise, it is permitted to return an empty dict if it is passed only
+    UnitlessTypes.
+    :return: A boolean indicating whether the output is different from
+    the input, and the same product, but with redundant unitless types removed.
+    """
+    simplified = {}
+    modified = False
+
+    for unit_type, power in product.items():
+        if isinstance(unit_type, UnitlessType):
+            if not remove_all and len(product) == 1:
+                # In this very special case, the entire thing is a unitless
+                # value, and thus shouldn't be messed with, aside from removing
+                # the power.
+                simplified[unit_type] = 1
+                modified = power != 1
+
+            else:
+                modified = True
+
+        else:
+            simplified[unit_type] = power
+
+    return modified, simplified
 
 
 def flatten(to_flatten: UnitType) -> Tuple[Dict[UnitType, int],
@@ -80,7 +115,7 @@ def flatten(to_flatten: UnitType) -> Tuple[Dict[UnitType, int],
             same_side.append(as_compound.left)
             same_side.append(as_compound.right)
             return True
-        if _is_fraction(to_expand):
+        if _is_fraction(maybe_compound):
             same_side.append(as_compound.left)
             other_side.append(as_compound.right)
             return True
@@ -130,7 +165,7 @@ def un_flatten(numerator: Mapping[UnitType, int],
         """
         # Python doesn't handle recursion well, so we do this using what I call
         # the "2048 algorithm".
-        reduced = operands[:]
+        reduced = list(operands)
         while len(reduced) > 1:
             to_reduce = reduced
             reduced = []
@@ -160,13 +195,20 @@ def un_flatten(numerator: Mapping[UnitType, int],
     # Convert the numerator and denominator into products.
     numerator = expand_powers(numerator)
     denominator = expand_powers(denominator)
-    prod_numerator = build_product(numerator)
+
+    if not numerator:
+        # If we don't have a numerator, that means that what we have is
+        # effectively 1 / something.
+        prod_numerator = Unitless
+    else:
+        prod_numerator = build_product(numerator)
+
     if not denominator:
         # It's entirely valid not to have a denominator, in which case, we can
         # just return the numerator.
         return prod_numerator
-
     prod_denominator = build_product(denominator)
+
     # Perform the final division.
     return type_factories.div(prod_numerator, prod_denominator)
 
@@ -193,6 +235,10 @@ def simplify(to_simplify: 'compound_unit_type.CompoundUnitType',
     """
     # Begin by flattening the input.
     numerator, denominator = flatten(to_simplify)
+    # Remove redundant unitless types.
+    num_changed, numerator = _collapse_unitless(numerator)
+    denom_changed, denominator = _collapse_unitless(denominator,
+                                                    remove_all=True)
 
     # Since flattening removes any compound units, we can assume that types are
     # compatible iff a simple reference equality condition is satisfied.
@@ -204,7 +250,7 @@ def simplify(to_simplify: 'compound_unit_type.CompoundUnitType',
             # This is redundant, and we can remove it.
             redundant_types.append(divisor)
 
-    if not redundant_types:
+    if not redundant_types and not num_changed and not denom_changed:
         # What we passed in can't be simplified.
         return to_simplify
 

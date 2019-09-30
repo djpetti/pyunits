@@ -9,6 +9,7 @@ from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.compound_units.operations import Operation
 from pyunits.compound_units import unit_analysis
 from pyunits.types import RequestType, CompoundTypeFactories
+from pyunits.unitless import UnitlessType
 from pyunits.unit_type import UnitType
 
 
@@ -29,6 +30,8 @@ class TestUnitAnalysis:
     # Type alias for a function that makes FakeCompoundTypes.
     FakeCompoundTypeFactory = Callable[[Operation, UnitType, UnitType],
                                        FakeCompoundType]
+    # Type alias for a function that makes Unitless values.
+    UnitlessTypeFactory = Callable[[], UnitlessType]
 
     class FlattenTest(NamedTuple):
         """
@@ -133,6 +136,23 @@ class TestUnitAnalysis:
         return fake_compound_type_factory_impl
 
     @classmethod
+    @pytest.fixture
+    def unitless_type_factory(cls) -> UnitlessTypeFactory:
+        """
+        Creates a factory for making UnitlessType instances. Also mocks the
+        Unitless class for the test so that it uses the same factory.
+        :return: A function that takes a raw value and returns a fake Unitless
+        instance with that value.
+        """
+        # Because UnitlessType is used to wrap only Unitless, there is
+        # just one canonical instance of UnitlessType, which we mock here.
+        with mock.patch(unit_analysis.__name__ + ".Unitless") as mock_unitless:
+            mock_unitless.mock_add_spec(UnitlessType)
+
+            yield lambda: mock_unitless
+            # Finalization done implicitly upon exit from context manager.
+
+    @classmethod
     @pytest.fixture(params=range(7))
     def flatten_test_case(cls, request: RequestType,
                           unit_type_factory: UnitTypeFactory,
@@ -194,11 +214,12 @@ class TestUnitAnalysis:
         return flatten_tests[test_index]
 
     @classmethod
-    @pytest.fixture(params=range(7))
+    @pytest.fixture(params=range(13))
     def simplify_test_case(cls, request: RequestType,
                            unit_type_factory: UnitTypeFactory,
                            compound_type_factory: CompoundTypeFactory,
-                           fake_compound_type_factory: FakeCompoundTypeFactory
+                           fake_compound_type_factory: FakeCompoundTypeFactory,
+                           unitless_type_factory: UnitlessTypeFactory,
                            ) -> SimplifyTest:
         """
         Creates a new SimplifyTest object to try.
@@ -208,6 +229,8 @@ class TestUnitAnalysis:
         CompoundUnitTypes.
         :param fake_compound_type_factory: The factory to use for creating
         fake CompoundUnitTypes.
+        :param unitless_type_factory: The factory to use for creating Unitless
+        instances.
         :return: The SimplifyTest to use.
         """
         test_index = request.param
@@ -229,6 +252,8 @@ class TestUnitAnalysis:
         simplified1 = real_mul(type1, type2)
         simplified2 = real_div(real_mul(type1, type2), real_mul(type3, type4))
         simplified3 = real_div(type1, real_div(type2, type1))
+        simplified4 = unitless_type_factory()
+        simplified5 = real_div(unitless_type_factory(), type1)
 
         # All simplify tests should use the fake compound unit type factories.
         fake_type_factories = CompoundTypeFactories(mul=fake_mul, div=fake_div)
@@ -261,20 +286,35 @@ class TestUnitAnalysis:
                type2, real_mul(type1, type1)),
                real_div(type3, type1)),
                          simplified=fake_div(type2, fake_mul(type1, type3))),
+           # Unitless values.
+           simplify_test(to_simplify=simplified4, simplified=simplified4),
+           simplify_test(to_simplify=real_mul(unitless_type_factory(),
+                                              unitless_type_factory()),
+                         simplified=unitless_type_factory()),
+           simplify_test(to_simplify=real_mul(unitless_type_factory(), type1),
+                         simplified=type1),
+           simplify_test(to_simplify=simplified5, simplified=simplified5),
+           simplify_test(to_simplify=real_div(type1, unitless_type_factory()),
+                         simplified=type1),
+           simplify_test(to_simplify=real_div(type1, real_mul(type1, type2)),
+                         simplified=fake_div(unitless_type_factory(), type2))
         ]
 
         return simplify_tests[test_index]
 
     @classmethod
-    @pytest.fixture(params=range(6))
+    @pytest.fixture(params=range(8))
     def un_flatten_test_case(cls, request: RequestType,
                              unit_type_factory: UnitTypeFactory,
+                             unitless_type_factory: UnitlessTypeFactory,
                              fake_compound_type_factory: FakeCompoundTypeFactory
                              ) -> UnFlattenTest:
         """
         Creates a new UnFlattenTest object to try.
         :param request: The request to use for parametrization.
         :param unit_type_factory: The factory to use for creating UnitTypes.
+        :param unitless_type_factory: The factory to use for creating Unitless
+        instances.
         :param fake_compound_type_factory: The factory to use for creating
         fake CompoundUnitTypes.
         :return: The UnFlattenTest to use.
@@ -317,6 +357,18 @@ class TestUnitAnalysis:
                             expected_compound=div_factory(
                                 mul_factory(type1, type2),
                                 mul_factory(type3, type3),
+                            )),
+            # When we have no numerator.
+            un_flatten_test(numerator={}, denominator={type1: 1},
+                            expected_compound=div_factory(
+                                unitless_type_factory(),
+                                type1,
+                            )),
+            un_flatten_test(numerator={}, denominator={type1: 2, type2: 1},
+                            expected_compound=div_factory(
+                                unitless_type_factory(),
+                                mul_factory(mul_factory(type1, type2),
+                                            type1),
                             )),
             # When we have nested products.
             un_flatten_test(numerator=od({type1: 2, type2: 2}),

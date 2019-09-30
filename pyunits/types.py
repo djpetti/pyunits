@@ -2,8 +2,6 @@ from typing import Any, Iterable, NamedTuple, Type, Union
 
 import numpy as np
 
-from .compound_units.operations import Operation
-
 
 # Type alias for numeric values that can be used to initialize a unit.
 Numeric = Union[np.ndarray, int, float, Iterable]

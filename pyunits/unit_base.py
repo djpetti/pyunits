@@ -3,10 +3,11 @@ import abc
 
 import numpy as np
 
-from . import unit_type
 from .compound_units import unit_analysis
 from .types import UnitValue, CompoundTypeFactories
+from .unitless import Unitless
 from .unit_interface import UnitInterface
+from .unit_type import UnitType
 
 
 class UnitBase(UnitInterface, abc.ABC):
@@ -14,7 +15,7 @@ class UnitBase(UnitInterface, abc.ABC):
     Base functionality for all Unit-like objects, including compound units.
     """
 
-    def __init__(self, my_type: "unit_type.UnitType"):
+    def __init__(self, my_type: UnitType):
         """
         :param my_type: The associated UnitType for this unit.
         """
@@ -70,7 +71,7 @@ class UnitBase(UnitInterface, abc.ABC):
             return self.type(self.raw * other)
 
     def _do_div(self, compound_type_factories: CompoundTypeFactories,
-                other: UnitValue) -> UnitValue:
+                other: UnitValue) -> UnitInterface:
         """
         Helper that implements the division operation.
         :param compound_type_factories: The factories to use for creating
@@ -86,7 +87,7 @@ class UnitBase(UnitInterface, abc.ABC):
                 this_class = self.type
                 other = this_class(other)
 
-                return self.raw / other.raw
+                return Unitless(self.raw / other.raw)
 
             else:
                 # Otherwise, create the compound unit.
@@ -112,7 +113,7 @@ class UnitBase(UnitInterface, abc.ABC):
             return self.type(self.raw / other)
 
     @property
-    def type(self) -> "unit_type.UnitType":
+    def type(self) -> UnitType:
         """
         :return: The associated UnitType for this unit.
         """
