@@ -6,6 +6,7 @@ import pytest
 from pyunits.compound_units import mul_unit
 from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.compound_units.operations import Operation
+from pyunits import unit_base
 from pyunits.unit_interface import UnitInterface
 
 
@@ -21,11 +22,13 @@ class TestMulUnit:
         :param mock_unit_type: The mocked type of the MulUnit.
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
+        :param mock_simplify: The mocked simplify function.
         """
         mul_unit: mul_unit.MulUnit
         mock_unit_type: mock.Mock
         mock_left_unit: mock.Mock
         mock_right_unit: mock.Mock
+        mock_simplify: mock.Mock
 
     @classmethod
     @pytest.fixture
@@ -46,10 +49,17 @@ class TestMulUnit:
         my_mul_unit = mul_unit.MulUnit(mock_unit_type, mock_left_unit,
                                        mock_right_unit)
 
-        return cls.UnitConfig(mul_unit=my_mul_unit,
-                              mock_unit_type=mock_unit_type,
-                              mock_left_unit=mock_left_unit,
-                              mock_right_unit=mock_right_unit)
+        with mock.patch(unit_base.__name__ + ".unit_analysis.simplify") as \
+                mock_simplify:
+            # Make it look like nothing can be simplified.
+            mock_simplify.side_effect = lambda x, _: x
+
+            yield cls.UnitConfig(mul_unit=my_mul_unit,
+                                 mock_unit_type=mock_unit_type,
+                                 mock_left_unit=mock_left_unit,
+                                 mock_right_unit=mock_right_unit,
+                                 mock_simplify=mock_simplify)
+            # Finalization done upon exit from context manager.
 
     def test_mul_compatible_unit(self, config: UnitConfig) -> None:
         """
@@ -83,6 +93,8 @@ class TestMulUnit:
             Operation.MUL, config.mock_unit_type, config.mock_unit_type)
 
         compound_unit = config.mock_unit_type.get.return_value
+        # It should have tried simplifying.
+        config.mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
         compound_unit.apply_to.assert_called_once_with(config.mul_unit,
                                                        converted)
 
