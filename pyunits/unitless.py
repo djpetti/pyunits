@@ -14,22 +14,16 @@ class UnitlessType(UnitType):
     do things like guarantee that a division operation always returns a unit
     and not occasionally a raw value, and to represent constructs like
     s ^ -1.
-    """
 
-    def is_compatible(self, other: UnitType) -> bool:
-        """
-        We make it so that UnitlessTypes are not compatible with anything. You
-        might think it more logical to instead have them be compatible with
-        everything, but this introduces a nasty reflexivity problem into
-        compatibility checks, e.g. the result is different depending on
-        whether you do a.is_compatible(b) or b.is_compatible(a). Furthermore,
-        I think it's better for PyUnits to force users to initialize a new
-        unit if they want to give a unit-less value units, instead of just
-        doing it implicitly.
-        :param other: The other type to check compatibility with.
-        :return: Always returns False.
-        """
-        return False
+    We make it so that UnitlessTypes are not compatible with anything. You
+    might think it more logical to instead have them be compatible with
+    everything, but this introduces a nasty reflexivity problem into
+    compatibility checks, e.g. the result is different depending on
+    whether you do a.is_compatible(b) or b.is_compatible(a). Furthermore,
+    I think it's better for PyUnits to force users to initialize a new
+    unit if they want to give a unit-less value units, instead of just
+    doing it implicitly.
+    """
 
 
 @UnitlessType.decorate
