@@ -22,12 +22,14 @@ class TestDivUnit:
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
         :param mock_unitless_class: The mocked Unitless class.
+        :param mock_wrap_numeric: The mocked WrapNumeric decorator.
         """
         div_unit: div_unit.DivUnit
         mock_unit_type: mock.Mock
         mock_left_unit: mock.Mock
         mock_right_unit: mock.Mock
         mock_unitless_class: mock.Mock
+        mock_wrap_numeric: mock.Mock
 
     @classmethod
     @pytest.fixture
@@ -48,12 +50,19 @@ class TestDivUnit:
         my_div_unit = div_unit.DivUnit(mock_unit_type, mock_left_unit,
                                        mock_right_unit)
 
-        with mock.patch(unit_base.__name__ + ".Unitless") as mock_unitless:
+        with mock.patch(unit_base.__name__ + ".Unitless") as mock_unitless, \
+                mock.patch(unit_base.__name__ + ".WrapNumeric") as \
+                mock_wrap_numeric:
+            # By default, make the WrapNumeric decorator return the function
+            # unchanged.
+            mock_wrap_numeric.return_value.side_effect = lambda x: x
+
             yield cls.UnitConfig(div_unit=my_div_unit,
                                  mock_unit_type=mock_unit_type,
                                  mock_left_unit=mock_left_unit,
                                  mock_right_unit=mock_right_unit,
-                                 mock_unitless_class=mock_unitless)
+                                 mock_unitless_class=mock_unitless,
+                                 mock_wrap_numeric=mock_wrap_numeric)
 
             # Finalization done implicitly upon exit from context manager.
 

@@ -27,6 +27,7 @@ class TestUnit:
         :param mock_mul: The mock compound_units.Mul function.
         :param mock_div: The mock compound_units.Div function.
         :param mock_simplify: The mock simplify function.
+        :param mock_wrap_numeric: The mocked WrapNumeric decorator.
         """
         standard_unit: unit.Unit
         unit: unit.Unit
@@ -34,6 +35,7 @@ class TestUnit:
         mock_mul: mock.Mock
         mock_div: mock.Mock
         mock_simplify: mock.Mock
+        mock_wrap_numeric: mock.Mock
 
     @classmethod
     @pytest.fixture(params=[10, 5.0, np.array([1, 2, 3]), [1, 2, 3]])
@@ -58,15 +60,20 @@ class TestUnit:
                                                                   div=mock_div)
 
         with mock.patch(unit_base.__name__ + ".unit_analysis.simplify") as \
-                mock_simplify:
+                mock_simplify, \
+                mock.patch(unit_base.__name__ + ".WrapNumeric") as \
+                mock_wrap_numeric:
             # Make it look like it never simplifies anything.
             mock_simplify.side_effect = lambda x, _: x
+            # Make the wrapper not change the function.
+            mock_wrap_numeric.return_value.side_effect = lambda x: x
 
             yield cls.UnitConfig(unit=my_unit, standard_unit=standard_unit,
                                  mock_type=unit_type,
                                  mock_mul=mock_mul,
                                  mock_div=mock_div,
-                                 mock_simplify=mock_simplify)
+                                 mock_simplify=mock_simplify,
+                                 mock_wrap_numeric=mock_wrap_numeric)
 
             # Finalization done upon exit from context manager.
 
@@ -241,48 +248,6 @@ class TestUnit:
         # It should have initialized the new unit instance.
         out_unit.assert_called_once_with(config.mock_type.as_type.return_value)
         assert got_unit == out_unit.return_value
-
-    @pytest.mark.parametrize("mul_by", [10, 5.0, np.array([1, 2, 3])])
-    def test_mul_numeric(self, config: UnitConfig, mul_by: UnitValue) -> None:
-        """
-        Tests that the multiplication operation works correctly when a unit is
-        multiplied by a numeric value.
-        :param config: The configuration to use.
-        :param mul_by: Value to multiply by.
-        """
-        # Arrange.
-        expected_product = config.unit.raw * mul_by
-
-        # Set up the mocks so that we can correctly make a new unit of the same
-        # type.
-        mock_unit_instance = config.mock_type.return_value
-        mock_raw = mock.PropertyMock(return_value=expected_product)
-        type(mock_unit_instance).raw = mock_raw
-
-        # Act and assert.
-        math_op_testing.test_mul_numeric(config.unit, config.mock_type,
-                                         mul_by, expected_product)
-
-    @pytest.mark.parametrize("div_by", [10, 5.0, np.array([1, 2, 3])])
-    def test_div_numeric(self, config: UnitConfig, div_by: UnitValue) -> None:
-        """
-        Tests that the division operation works correctly when a unit is
-        divided by a numeric value.
-        :param config: The configuration to use.
-        :param div_by: Value to divide by.
-        """
-        # Arrange.
-        expected_quotient = config.unit.raw / div_by
-
-        # Set up the mocks so that we can correctly make a new unit of the same
-        # type.
-        mock_unit_instance = config.mock_type.return_value
-        mock_raw = mock.PropertyMock(return_value=expected_quotient)
-        type(mock_unit_instance).raw = mock_raw
-
-        # Act and assert.
-        math_op_testing.test_div_numeric(config.unit, config.mock_type,
-                                         div_by, expected_quotient)
 
     def test_mul_compatible_unit(self, config: UnitConfig) -> None:
         """

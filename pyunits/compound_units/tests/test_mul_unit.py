@@ -23,12 +23,14 @@ class TestMulUnit:
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
         :param mock_simplify: The mocked simplify function.
+        :param mock_wrap_numeric: The mocked WrapNumeric decorator.
         """
         mul_unit: mul_unit.MulUnit
         mock_unit_type: mock.Mock
         mock_left_unit: mock.Mock
         mock_right_unit: mock.Mock
         mock_simplify: mock.Mock
+        mock_wrap_numeric: mock.Mock
 
     @classmethod
     @pytest.fixture
@@ -50,15 +52,21 @@ class TestMulUnit:
                                        mock_right_unit)
 
         with mock.patch(unit_base.__name__ + ".unit_analysis.simplify") as \
-                mock_simplify:
+                mock_simplify, \
+                mock.patch(unit_base.__name__ + ".WrapNumeric") as \
+                mock_wrap_numeric:
             # Make it look like nothing can be simplified.
             mock_simplify.side_effect = lambda x, _: x
+            # By default, make the WrapNumeric decorator return the function
+            # unchanged.
+            mock_wrap_numeric.return_value.side_effect = lambda x: x
 
             yield cls.UnitConfig(mul_unit=my_mul_unit,
                                  mock_unit_type=mock_unit_type,
                                  mock_left_unit=mock_left_unit,
                                  mock_right_unit=mock_right_unit,
-                                 mock_simplify=mock_simplify)
+                                 mock_simplify=mock_simplify,
+                                 mock_wrap_numeric=mock_wrap_numeric)
             # Finalization done upon exit from context manager.
 
     def test_mul_compatible_unit(self, config: UnitConfig) -> None:

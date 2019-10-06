@@ -4,6 +4,7 @@ import abc
 import numpy as np
 
 from .compound_units import unit_analysis
+from .numeric_handling import WrapNumeric
 from .types import UnitValue, CompoundTypeFactories
 from .unitless import Unitless
 from .unit_interface import UnitInterface
@@ -32,8 +33,9 @@ class UnitBase(UnitInterface, abc.ABC):
 
         return np.array_equal(self.raw, other_same.raw)
 
+    @WrapNumeric("other")
     def _do_mul(self, compound_type_factories: CompoundTypeFactories,
-                other: UnitValue) -> UnitInterface:
+                other: UnitInterface) -> UnitInterface:
         """
         Helper that implements the multiplication operation.
         :param compound_type_factories: The factories to use for creating
@@ -41,37 +43,33 @@ class UnitBase(UnitInterface, abc.ABC):
         :param other: The unit to multiply by this one.
         :return: The multiplication of the two units.
         """
-        if isinstance(other, UnitInterface):
-            if other.type.is_compatible(self.type):
-                # In this case, we'll get some unit squared. Convert to the
-                # same units before proceeding.
-                this_class = self.type
-                other = this_class(other)
+        if other.type.is_compatible(self.type):
+            # In this case, we'll get some unit squared. Convert to the
+            # same units before proceeding.
+            this_class = self.type
+            other = this_class(other)
 
-            # Create the compound unit.
-            mul_unit_factory = compound_type_factories.mul(self.type,
-                                                           other.type)
-            # Simplify the type if possible.
-            simplified = unit_analysis.simplify(mul_unit_factory,
-                                                compound_type_factories)
-            if simplified == mul_unit_factory:
-                # If we couldn't simplify, don't do any conversions in order to
-                # avoid producing an unexpected result.
-                return mul_unit_factory.apply_to(self, other)
+        # Create the compound unit.
+        mul_unit_factory = compound_type_factories.mul(self.type,
+                                                       other.type)
+        # Simplify the type if possible.
+        simplified = unit_analysis.simplify(mul_unit_factory,
+                                            compound_type_factories)
+        if simplified == mul_unit_factory:
+            # If we couldn't simplify, don't do any conversions in order to
+            # avoid producing an unexpected result.
+            return mul_unit_factory.apply_to(self, other)
 
-            # Because simplification works on types, everything needs to be
-            # in the same units for it to work. Therefore, we convert everything
-            # to standard units.
-            standard_self = self.to_standard()
-            standard_other = other.to_standard()
-            return simplified(standard_self.raw * standard_other.raw)
+        # Because simplification works on types, everything needs to be
+        # in the same units for it to work. Therefore, we convert everything
+        # to standard units.
+        standard_self = self.to_standard()
+        standard_other = other.to_standard()
+        return simplified(standard_self.raw * standard_other.raw)
 
-        else:
-            # A normal numeric value can be directly multiplied.
-            return self.type(self.raw * other)
-
+    @WrapNumeric("other")
     def _do_div(self, compound_type_factories: CompoundTypeFactories,
-                other: UnitValue) -> UnitInterface:
+                other: UnitInterface) -> UnitInterface:
         """
         Helper that implements the division operation.
         :param compound_type_factories: The factories to use for creating
@@ -80,37 +78,32 @@ class UnitBase(UnitInterface, abc.ABC):
         :return: The quotient of the two units. Note that this can be a unitless
         value if the inputs are of the same UnitType.
         """
-        if isinstance(other, UnitInterface):
-            if other.type.is_compatible(self.type):
-                # In this case, we'll get a unit-less value. Convert to the same
-                # units before proceeding.
-                this_class = self.type
-                other = this_class(other)
+        if other.type.is_compatible(self.type):
+            # In this case, we'll get a unit-less value. Convert to the same
+            # units before proceeding.
+            this_class = self.type
+            other = this_class(other)
 
-                return Unitless(self.raw / other.raw)
-
-            else:
-                # Otherwise, create the compound unit.
-                div_unit_factory = compound_type_factories.div(self.type,
-                                                               other.type)
-                # Simplify the type if possible.
-                simplified = unit_analysis.simplify(div_unit_factory,
-                                                    compound_type_factories)
-                if simplified == div_unit_factory:
-                    # If we couldn't simplify, don't do any conversions in order
-                    # to avoid producing an unexpected result.
-                    return div_unit_factory.apply_to(self, other)
-
-                # Because simplification works on types, everything needs to be
-                # in the same units for it to work. Therefore, we convert
-                # everything to standard units.
-                standard_self = self.to_standard()
-                standard_other = other.to_standard()
-                return simplified(standard_self.raw / standard_other.raw)
+            return Unitless(self.raw / other.raw)
 
         else:
-            # A normal numeric value can be directly divided.
-            return self.type(self.raw / other)
+            # Otherwise, create the compound unit.
+            div_unit_factory = compound_type_factories.div(self.type,
+                                                           other.type)
+            # Simplify the type if possible.
+            simplified = unit_analysis.simplify(div_unit_factory,
+                                                compound_type_factories)
+            if simplified == div_unit_factory:
+                # If we couldn't simplify, don't do any conversions in order
+                # to avoid producing an unexpected result.
+                return div_unit_factory.apply_to(self, other)
+
+            # Because simplification works on types, everything needs to be
+            # in the same units for it to work. Therefore, we convert
+            # everything to standard units.
+            standard_self = self.to_standard()
+            standard_other = other.to_standard()
+            return simplified(standard_self.raw / standard_other.raw)
 
     @property
     def type(self) -> UnitType:
