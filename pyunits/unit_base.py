@@ -3,7 +3,7 @@ import abc
 
 import numpy as np
 
-from .compound_units import unit_analysis
+from .compound_units import compound_unit_type, unit_analysis
 from .numeric_handling import WrapNumeric
 from .types import UnitValue, CompoundTypeFactories
 from .unitless import Unitless
@@ -33,6 +33,34 @@ class UnitBase(UnitInterface, abc.ABC):
 
         return np.array_equal(self.raw, other_same.raw)
 
+    def __create_compound(self,
+                          compound_type: 'compound_unit_type.CompoundUnitType',
+                          compound_type_factories: CompoundTypeFactories,
+                          other: UnitInterface) -> UnitInterface:
+        """
+        Creates a new compound unit, handling all the simplification and such.
+        :param compound_type: The CompoundUnitType to use for creating the unit.
+        :param compound_type_factories: The factories to use for creating
+        CompoundUnitTypes.
+        :param other: The other unit to use as the right member of the compound
+        unit.
+        :return: The new unit that it created.
+        """
+        # Create the compound unit.
+        raw_result = compound_type.apply_to(self, other)
+
+        # Simplify the type if possible.
+        simplified = unit_analysis.simplify(compound_type,
+                                            compound_type_factories)
+        if simplified == compound_type:
+            # If we couldn't simplify, we can just use the raw result with no
+            # further computation.
+            return raw_result
+
+        # Otherwise, use the same raw value, but encapsulate it in the
+        # simplified type.
+        return simplified(raw_result.raw)
+
     @WrapNumeric("other")
     def _do_mul(self, compound_type_factories: CompoundTypeFactories,
                 other: UnitInterface) -> UnitInterface:
@@ -52,20 +80,8 @@ class UnitBase(UnitInterface, abc.ABC):
         # Create the compound unit.
         mul_unit_factory = compound_type_factories.mul(self.type,
                                                        other.type)
-        # Simplify the type if possible.
-        simplified = unit_analysis.simplify(mul_unit_factory,
-                                            compound_type_factories)
-        if simplified == mul_unit_factory:
-            # If we couldn't simplify, don't do any conversions in order to
-            # avoid producing an unexpected result.
-            return mul_unit_factory.apply_to(self, other)
-
-        # Because simplification works on types, everything needs to be
-        # in the same units for it to work. Therefore, we convert everything
-        # to standard units.
-        standard_self = self.to_standard()
-        standard_other = other.to_standard()
-        return simplified(standard_self.raw * standard_other.raw)
+        return self.__create_compound(mul_unit_factory, compound_type_factories,
+                                      other)
 
     @WrapNumeric("other")
     def _do_div(self, compound_type_factories: CompoundTypeFactories,
@@ -90,20 +106,9 @@ class UnitBase(UnitInterface, abc.ABC):
             # Otherwise, create the compound unit.
             div_unit_factory = compound_type_factories.div(self.type,
                                                            other.type)
-            # Simplify the type if possible.
-            simplified = unit_analysis.simplify(div_unit_factory,
-                                                compound_type_factories)
-            if simplified == div_unit_factory:
-                # If we couldn't simplify, don't do any conversions in order
-                # to avoid producing an unexpected result.
-                return div_unit_factory.apply_to(self, other)
-
-            # Because simplification works on types, everything needs to be
-            # in the same units for it to work. Therefore, we convert
-            # everything to standard units.
-            standard_self = self.to_standard()
-            standard_other = other.to_standard()
-            return simplified(standard_self.raw / standard_other.raw)
+            return self.__create_compound(div_unit_factory,
+                                          compound_type_factories,
+                                          other)
 
     @property
     def type(self) -> UnitType:

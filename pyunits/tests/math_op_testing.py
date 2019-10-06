@@ -4,7 +4,6 @@ import numpy as np
 
 from pyunits.compound_units.compound_unit_type import  CompoundUnitType
 from pyunits.compound_units.operations import Operation
-from pyunits.types import Numeric
 from pyunits.unit_interface import UnitInterface
 
 
@@ -18,8 +17,8 @@ def test_mul_incompatible_unit(unit: UnitInterface, mock_type: mock.Mock,
     Tests the multiplication of a unit with another that is incompatible.
     :param unit: The unit to test the multiplication of.
     :param mock_type: The mocked UnitType for this unit.
-    :param mock_mul_factory: The mocked CompoundUnitType to use for creating the
-    resulting compound unit.
+    :param mock_mul_factory: The mocked CompoundUnitType factory to use for
+    creating the resulting CompoundUnitType.
     :param mock_simplify: The mocked simplify() function.
     :param simplify: Whether to make it look like the resulting CompoundUnitType
     can be simplified.
@@ -35,10 +34,11 @@ def test_mul_incompatible_unit(unit: UnitInterface, mock_type: mock.Mock,
     other_type_property = mock.PropertyMock(return_value=other_type)
     type(other_unit).type = other_type_property
 
-    # Make it look like we can standardize the other unit and get a raw value.
-    standard_other = other_unit.to_standard.return_value
+    # Make it look like we can get a raw value from the compound type.
+    compound_unit_type = mock_mul_factory.return_value
+    mock_raw_compound = compound_unit_type.apply_to.return_value
     mock_raw = mock.PropertyMock(return_value=np.array(42.0))
-    type(standard_other).raw = mock_raw
+    type(mock_raw_compound).raw = mock_raw
 
     # Make it look like the types are incompatible.
     other_type.is_compatible.return_value = False
@@ -69,27 +69,22 @@ def test_mul_incompatible_unit(unit: UnitInterface, mock_type: mock.Mock,
         )
 
     # It should have applied the compound unit to the operands.
-    compound_unit = mock_mul_factory.return_value
+    compound_unit_type.apply_to.assert_called_once_with(unit, other_unit)
     # It should have simplified the unit type.
-    mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
+    mock_simplify.assert_called_once_with(compound_unit_type, mock.ANY)
 
     if not simplify:
         # It should have used the original type.
-        compound_unit.apply_to.assert_called_once_with(unit, other_unit)
+        compound_unit_type.apply_to.assert_called_once_with(unit, other_unit)
 
         # It should have returned the compound unit.
-        assert product == compound_unit.apply_to.return_value
+        assert product == compound_unit_type.apply_to.return_value
 
     else:
-        # It should have used the simplified type.
-        # The sub-units should have been standardized.
-        other_unit.to_standard.assert_called_once_with()
-
         # It should have created the simplified unit.
-        raw_product = unit.to_standard().raw * np.array(42.0)
         mock_simplified.assert_called_once()
         args, _ = mock_simplified.call_args
-        np.testing.assert_array_almost_equal(args[0], raw_product)
+        np.testing.assert_array_almost_equal(args[0], np.array(42.0))
 
         # It should have returned the compound unit.
         assert product == mock_simplified.return_value
@@ -121,10 +116,11 @@ def test_div_incompatible_unit(unit: UnitInterface, mock_type: mock.Mock,
     other_type_property = mock.PropertyMock(return_value=other_type)
     type(other_unit).type = other_type_property
 
-    # Make it look like we can standardize the other unit and get a raw value.
-    standard_other = other_unit.to_standard.return_value
+    # Make it look like we can get a raw value from the compound type.
+    compound_unit_type = mock_div_factory.return_value
+    mock_raw_compound = compound_unit_type.apply_to.return_value
     mock_raw = mock.PropertyMock(return_value=np.array(42.0))
-    type(standard_other).raw = mock_raw
+    type(mock_raw_compound).raw = mock_raw
 
     # Make it look like the types are incompatible.
     other_type.is_compatible.return_value = False
@@ -154,27 +150,23 @@ def test_div_incompatible_unit(unit: UnitInterface, mock_type: mock.Mock,
             mock_type, other_type
         )
 
-    compound_unit = mock_div_factory.return_value
+    # It should have applied the compound unit to the operands.
+    compound_unit_type.apply_to.assert_called_once_with(unit, other_unit)
     # It should have simplified the unit type.
-    mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
+    mock_simplify.assert_called_once_with(compound_unit_type, mock.ANY)
 
     if not simplify:
         # It should have used the original type.
-        compound_unit.apply_to.assert_called_once_with(unit, other_unit)
+        compound_unit_type.apply_to.assert_called_once_with(unit, other_unit)
 
         # It should have returned the compound unit.
-        assert quotient == compound_unit.apply_to.return_value
+        assert quotient == compound_unit_type.apply_to.return_value
 
     else:
-        # It should have used the simplified type.
-        # The sub-units should have been standardized.
-        other_unit.to_standard.assert_called_once_with()
-
         # It should have created the simplified unit.
-        raw_quotient = unit.to_standard().raw / np.array(42.0)
         mock_simplified.assert_called_once()
         args, _ = mock_simplified.call_args
-        np.testing.assert_array_almost_equal(args[0], raw_quotient)
+        np.testing.assert_array_almost_equal(args[0], np.array(42.0))
 
         # It should have returned the compound unit.
         assert quotient == mock_simplified.return_value
