@@ -28,6 +28,13 @@ class UnitInterface(abc.ABC):
         :return: The result of the division.
         """
 
+    @classmethod
+    @abc.abstractmethod
+    def is_standard(cls) -> bool:
+        """
+        :return: True if this is a standard unit, false otherwise.
+        """
+
     @property
     @abc.abstractmethod
     def type(self) -> "unit_type.UnitType":

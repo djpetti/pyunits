@@ -1,9 +1,9 @@
-from typing import Any, Callable, NamedTuple, Type
+from typing import Callable, NamedTuple, Type
 import functools
 
 from loguru import logger
 
-from .exceptions import CastError
+from .exceptions import CastError, UnitError
 from . import unit_interface
 from .interning import Interned
 
@@ -36,6 +36,8 @@ class UnitType(Interned):
     # This is a table that tells us what casts we can perform directly. It is
     # indexed by Casts, and the values are functions that perform that cast.
     _DIRECT_CASTS = {}
+    # Keeps track of which Unit subclass is the standard unit for this type.
+    _STANDARD_UNIT_CLASS = None
 
     def _init_new(self, unit_class: Type) -> None:
         """
@@ -46,7 +48,7 @@ class UnitType(Interned):
 
         self.__unit_class = unit_class
 
-    def __call__(self, *args, **kwargs) -> "unit_interface.UnitInterface":
+    def __call__(self, *args, **kwargs) -> 'unit_interface.UnitInterface':
         """
         "Stamps" the unit class so we know what type it is.
         :param args: Will be forwarded to the UnitBase constructor.
@@ -56,15 +58,31 @@ class UnitType(Interned):
         return self.__unit_class(self, *args, **kwargs)
 
     @classmethod
-    def decorate(cls, *args: Any, **kwargs: Any) -> 'UnitType':
+    def decorate(cls, unit_class: Type['unit_interface.UnitInterface']
+                 ) -> 'UnitType':
         """
-        Alias for get() that provides a slightly more expressive API when this
-        class is used as a decorator.
-        :param args: Positional arguments that will be forwarded to get().
-        :param kwargs: Keyword arguments that will be forwarded to get().
-        :return: The UnitType that it created.
+        Used to decorate a Unit subclass and mark it as a member of this
+        UnitType.
+        :param unit_class: The Unit subclass that is being decorated.
+        :return: The UnitType instance (decorated Unit subclass) that it
+        created.
         """
-        return cls.get(*args, **kwargs)
+        wrapped = cls.get(unit_class)
+
+        if unit_class.is_standard():
+            # Record this as our standard unit.
+            if cls._STANDARD_UNIT_CLASS is not None:
+                # This is a mistake, because we already have a standard unit.
+                raise UnitError("Attempt to set {} as standard unit of {}, "
+                                "which already has standard unit {}."
+                                .format(unit_class.__name__, cls.__name__,
+                                        cls._STANDARD_UNIT_CLASS.__name__))
+
+            logger.debug("Setting {} as standard unit of type {}.",
+                         unit_class.__name__, cls.__name__)
+            cls._STANDARD_UNIT_CLASS = wrapped
+
+        return wrapped
 
     @classmethod
     def register_cast(cls, out_type: Type, handler: CastFunction) -> None:
@@ -103,6 +121,18 @@ class UnitType(Interned):
 
         handler = cls._DIRECT_CASTS[cast]
         return handler(unit)
+
+    @classmethod
+    def standard_unit_class(cls) -> 'UnitType':
+        """
+        :return: The standard unit class for this UnitType.
+        """
+        if cls._STANDARD_UNIT_CLASS is None:
+            # We never set one.
+            raise UnitError("UnitType {} has no standard unit."
+                            .format(cls.__name__))
+
+        return cls._STANDARD_UNIT_CLASS
 
     def is_compatible(self, other: "UnitType") -> bool:
         """

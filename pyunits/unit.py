@@ -62,6 +62,14 @@ class Unit(UnitBase, abc.ABC):
         :param standard_value: The standard unit to initialize from.
         """
 
+    @classmethod
+    def is_standard(cls) -> bool:
+        """
+        See superclass for documentation.
+        """
+        # We'll assume it's not standard.
+        return False
+
     @property
     def raw(self) -> np.ndarray:
         """
@@ -82,3 +90,34 @@ class Unit(UnitBase, abc.ABC):
         """
         out_type_class = out_type.__class__
         return out_type(self.type.as_type(self, out_type_class))
+
+
+class StandardUnit(Unit):
+    """
+    Can be inherited from to identify that a particular unit is the "standard"
+    unit for its UnitType. This is useful for two reasons: It makes standard
+    units "explicit", so we can do nice things like raise an exception when we
+    don't have one. Also, it saves us from having to write boilerplate code for
+    standard units.
+    """
+
+    def _from_standard(self, standard_value: 'StandardUnit') -> None:
+        """
+        See superclass for documentation.
+        """
+        # This is the standard unit.
+        self._set_raw(standard_value.raw)
+
+    @classmethod
+    def is_standard(cls) -> bool:
+        """
+        See superclass for documentation.
+        """
+        return True
+
+    def to_standard(self) -> Unit:
+        """
+        See superclass for documentation.
+        """
+        # This is the standard unit.
+        return self

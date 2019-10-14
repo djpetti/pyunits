@@ -42,6 +42,13 @@ class CompoundUnit(UnitBase, abc.ABC):
     def __truediv__(self, other: UnitValue) -> UnitValue:
         return self._do_div(self.__get_type_factories(), other)
 
+    def is_standard(self) -> bool:
+        """
+        See superclass for documentation.
+        """
+        # This unit will be considered standard if both its subunits are.
+        return self.left.is_standard() and self.right.is_standard()
+
     def to_standard(self) -> UnitInterface:
         """
         See superclass for documentation.
@@ -83,3 +90,11 @@ class CompoundUnit(UnitBase, abc.ABC):
         :return: The unit that is the right-hand operand.
         """
         return self.__right_unit
+
+    @property
+    def operation(self) -> Operation:
+        """
+        :return: The operation performed by this unit.
+        """
+        my_type = cast(compound_unit_type.CompoundUnitType, self.type)
+        return my_type.operation

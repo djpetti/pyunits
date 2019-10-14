@@ -1,4 +1,4 @@
-from pyunits.unit import Unit
+from pyunits.unit import StandardUnit, Unit
 from pyunits.unit_type import UnitType, CastHandler
 
 
@@ -27,24 +27,10 @@ class Time(UnitType):
 
 
 @Length.decorate
-class Meters(Unit):
+class Meters(StandardUnit):
     """
     A meters unit.
     """
-
-    def _from_standard(self, standard_value: "Unit") -> None:
-        """
-        See superclass for documentation.
-        """
-        # This is the standard unit.
-        self._set_raw(standard_value.raw)
-
-    def to_standard(self) -> Unit:
-        """
-        See superclass for documentation.
-        """
-        # This is the standard unit.
-        return self
 
     @property
     def name(self) -> str:
@@ -83,24 +69,10 @@ class Centimeters(Unit):
 
 
 @Time.decorate
-class Seconds(Unit):
+class Seconds(StandardUnit):
     """
     A seconds unit.
     """
-
-    def _from_standard(self, standard_value: "Unit") -> None:
-        """
-        See superclass for documentation.
-        """
-        # This is the standard unit.
-        self._set_raw(standard_value.raw)
-
-    def to_standard(self) -> Unit:
-        """
-        See superclass for documentation.
-        """
-        # This is the standard unit.
-        return self
 
     @property
     def name(self) -> str:
@@ -111,24 +83,10 @@ class Seconds(Unit):
 
 
 @Length2D.decorate
-class Meters2D(Unit):
+class Meters2D(StandardUnit):
     """
     A unit for a 2D position in meters.
     """
-
-    def _from_standard(self, standard_value: "Unit") -> None:
-        """
-        See superclass for documentation.
-        """
-        # This is the standard unit.
-        self._set_raw(standard_value.raw)
-
-    def to_standard(self) -> "Unit":
-        """
-        See superclass for documentation.
-        """
-        # This is the standard unit.
-        return self
 
     @property
     def name(self) -> str:

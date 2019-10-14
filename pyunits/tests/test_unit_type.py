@@ -3,9 +3,10 @@ import unittest.mock as mock
 
 import pytest
 
+from pyunits.exceptions import UnitError
 from pyunits.unit_type import UnitType, CastHandler
 from pyunits.exceptions import CastError
-from .helpers import MyType, MyUnit, MyOtherType
+from .helpers import MyType, MyStandardUnit, MyUnit, MyOtherType
 
 
 class _OtherType(UnitType):
@@ -43,6 +44,41 @@ class TestUnitType:
         # Assert.
         # The unit type should be correct.
         assert my_unit.type == wrapped_unit
+
+    def test_wrapping_standard(self) -> None:
+        """
+        Tests that wrapping a standard unit works under normal conditions.
+        """
+        # Arrange.
+        MyType.clear_interning_cache()
+        # Make it look like we have no standard unit for this type.
+        MyType._STANDARD_UNIT_CLASS = None
+
+        # Act.
+        # Perform the decoration.
+        wrapped = MyType.decorate(MyStandardUnit)
+
+        # Assert.
+        # It should have set the standard unit.
+        assert MyType.standard_unit_class() == wrapped
+
+    def test_wrapping_standard_twice(self) -> None:
+        """
+        Tests that it fails if we try to specify multiple standard units for a
+        single UnitType.
+        """
+        # Arrange.
+        MyType.clear_interning_cache()
+        # Make it look like we have no standard unit for this type.
+        MyType._STANDARD_UNIT_CLASS = None
+
+        # Specify a standard unit.
+        MyType.decorate(MyStandardUnit)
+
+        # Act and assert.
+        # Trying to specify another one should raise an exception.
+        with pytest.raises(UnitError, match="already has standard"):
+            MyType.decorate(MyStandardUnit)
 
     def test_as_type(self, wrapped_unit: MyType) -> None:
         """
@@ -90,13 +126,28 @@ class TestUnitType:
         with pytest.raises(CastError):
             wrapped_unit.as_type(to_convert, other_type)
 
+    def test_standard_unit_class_not_set(self) -> None:
+        """
+        Tests that getting the standard unit class fails when none was set.
+        """
+        # Arrange.
+        MyType.clear_interning_cache()
+        # Make it look like we have no standard unit for this type.
+        MyType._STANDARD_UNIT_CLASS = None
+
+        # Act and assert.
+        with pytest.raises(UnitError, match="no standard"):
+            MyType.standard_unit_class()
+
     def test_is_compatible(self, wrapped_unit: MyType) -> None:
         """
         Tests that is_compatible works under normal conditions.
         :param wrapped_unit: The decorated Unit class.
         """
         # Arrange.
-        fake_unit_class = mock.Mock(spec=type)
+        fake_unit_class = mock.Mock(spec=MyUnit)
+        fake_unit_class.is_standard.return_value = False
+
         # Create an instance of another UnitType.
         other_type = MyOtherType.decorate(fake_unit_class)
 

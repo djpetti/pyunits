@@ -1,4 +1,4 @@
-from pyunits.unit import Unit
+from pyunits.unit import StandardUnit, Unit
 from pyunits.unit_type import UnitType
 
 
@@ -16,28 +16,18 @@ class MyOtherType(UnitType):
     pass
 
 
-class MyStandardUnit(Unit):
+class MyStandardUnit(StandardUnit):
     """
-    Represents the standard unit for this fake unit system.
+    Represents the standard unit for this fake unit system. Deliberately
+    un-decorated so that we can test decoration.
     """
-
-    def _from_standard(self, standard_value: Unit) -> None:
-        """
-        See superclass for documentation.
-        """
-        # It is already in standard form.
-        self._set_raw(standard_value.raw)
-
-    def to_standard(self) -> Unit:
-        """
-        See superclass for documentation.
-        """
-        return self
+    pass
 
 
 class MyUnit(Unit):
     """
-    A fake Unit subclass that we can use for testing.
+    A fake Unit subclass that we can use for testing. Deliberately undecorated
+    so that we can test decoration.
     """
 
     # Conversion factor to use between this and the standard unit.

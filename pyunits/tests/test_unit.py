@@ -207,6 +207,24 @@ class TestUnit:
         assert config.unit == same_unit
         assert config.unit != different_unit
 
+    @pytest.mark.parametrize("is_standard", [False, True],
+                             ids=["not_standard", "standard"])
+    def test_is_standard(self, is_standard: bool) -> None:
+        """
+        Tests that is_standard() works.
+        :param is_standard: Whether to test this on the standard unit.
+        """
+        # Arrange.
+        unit_class = MyUnit
+        if is_standard:
+            unit_class = MyStandardUnit
+
+        # Act.
+        standard = unit_class.is_standard()
+
+        # Assert.
+        assert standard == is_standard
+
     def test_name(self, config: UnitConfig) -> None:
         """
         Tests that getting the name of a unit works.

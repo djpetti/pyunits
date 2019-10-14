@@ -10,8 +10,9 @@ from pyunits.compound_units.compound_unit import CompoundUnit
 from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.compound_units.div_unit import DivUnit
 from pyunits.compound_units.mul_unit import MulUnit
+from pyunits.compound_units.operations import Operation
 from pyunits.tests import math_op_testing
-from pyunits.types import RequestType, UnitValue
+from pyunits.types import RequestType
 from pyunits.unit_interface import UnitInterface
 
 
@@ -102,6 +103,30 @@ class TestCompoundUnit:
 
             # Finalization done upon exit from context manager.
 
+    @pytest.mark.parametrize(["left_standard", "right_standard",
+                              "compound_standard"],
+                             [(True, True, True), (False, False, False),
+                              (True, False, False), (False, True, False)])
+    def test_is_standard(self, config: UnitConfig,
+                         left_standard: bool, right_standard: bool,
+                         compound_standard: bool) -> None:
+        """
+        Tests that is_standard() works.
+        :param config: The configuration to use.
+        :param left_standard: Whether the left unit is standard.
+        :param right_standard: Whether the right unit is standard.
+        :param compound_standard: Whether the compound unit should be standard.
+        """
+        # Arrange.
+        config.mock_left_unit.is_standard.return_value = left_standard
+        config.mock_right_unit.is_standard.return_value = right_standard
+
+        # Act.
+        got_standard = config.compound_unit.is_standard()
+
+        # Assert.
+        assert got_standard == compound_standard
+
     def test_to_standard(self, config: UnitConfig) -> None:
         """
         Tests that to_standard() works.
@@ -169,6 +194,22 @@ class TestCompoundUnit:
         # Arrange done in fixtures.
         # Act and assert.
         assert config.compound_unit.right == config.mock_right_unit
+
+    def test_operation(self, config: UnitConfig) -> None:
+        """
+        Tests that getting the operation works.
+        :param config: The configuration to use.
+        """
+        # Arrange.
+        # Mock the operation from the type.
+        mock_operation = mock.PropertyMock(return_value=Operation.MUL)
+        type(config.mock_unit_type).operation = mock_operation
+
+        # Act.
+        got_operation = config.compound_unit.operation
+
+        # Assert.
+        assert got_operation == Operation.MUL
 
     @pytest.mark.parametrize("test_func",
                              [math_op_testing.test_mul_incompatible_unit,
