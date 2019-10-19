@@ -63,8 +63,6 @@ class TestUnit:
                 mock_simplify, \
                 mock.patch(unit_base.__name__ + ".WrapNumeric") as \
                 mock_wrap_numeric:
-            # Make it look like it never simplifies anything.
-            mock_simplify.side_effect = lambda x, _: x
             # Make the wrapper not change the function.
             mock_wrap_numeric.return_value.side_effect = lambda x: x
 
@@ -165,7 +163,7 @@ class TestUnit:
         with pytest.raises(UnitError):
             MyStandardUnit(my_type, config.unit)
 
-    def test_eq(self, config: UnitConfig) -> None:
+    def test_equals(self, config: UnitConfig) -> None:
         """
         Tests that two units will compare as equal when they should.
         :param config: The configuration to use for testing.
@@ -182,8 +180,8 @@ class TestUnit:
         different_unit = MyUnit(mock_type, config.unit.raw + 1)
 
         # Act and assert.
-        assert config.unit == same_unit
-        assert config.unit != different_unit
+        assert config.unit.equals(same_unit)
+        assert not config.unit.equals(different_unit)
 
     def test_eq_other_unit(self, config: UnitConfig) -> None:
         """
@@ -204,8 +202,8 @@ class TestUnit:
         different_unit = MyStandardUnit(mock_type, config.unit.raw)
 
         # Act and assert.
-        assert config.unit == same_unit
-        assert config.unit != different_unit
+        assert config.unit.equals(same_unit)
+        assert not config.unit.equals(different_unit)
 
     @pytest.mark.parametrize("is_standard", [False, True],
                              ids=["not_standard", "standard"])
@@ -288,18 +286,20 @@ class TestUnit:
 
         # It should have converted the standard unit.
         config.mock_type.assert_called_once_with(config.standard_unit)
-        # It should have created a new compound unit.
+        # It should have created a new compound unit type.
         config.mock_mul.assert_called_once_with(config.mock_type,
                                                 config.mock_type)
+        compound_unit_type = config.mock_mul.return_value
 
-        compound_unit = config.mock_mul.return_value
-        # It should have simplified the unit type.
+        # It should have created the compound unit.
+        compound_unit_type.apply_to.assert_called_once_with(config.unit,
+                                                            converted)
+        compound_unit = compound_unit_type.apply_to.return_value
+
+        # It should have simplified the compound unit.
         config.mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
-        compound_unit.apply_to.assert_called_once_with(config.unit,
-                                                       converted)
-
         # It should have returned the compound unit.
-        assert product == compound_unit.apply_to.return_value
+        assert product == config.mock_simplify.return_value
 
     @pytest.mark.parametrize("simplify", [False, True])
     def test_mul_incompatible_unit(self, config: UnitConfig,

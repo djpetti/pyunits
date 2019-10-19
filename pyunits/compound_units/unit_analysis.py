@@ -1,10 +1,19 @@
-from typing import Any, cast, Dict, Iterable, List, Mapping, Tuple
+from typing import Any, cast, Dict, Iterable, List, Mapping, NoReturn, Tuple,\
+    Union
+import functools
+
+import numpy as np
 
 from ..unitless import Unitless, UnitlessType
+from ..unit_interface import UnitInterface
 from ..unit_type import UnitType
 from ..types import CompoundTypeFactories
-from . import compound_unit_type
 from .operations import Operation
+
+
+CompoundUnitOrType = Union['compound_unit_type.CompoundUnitType',
+                           'compound_unit.CompoundUnit']
+UnitOrType = Union[UnitType, UnitInterface]
 
 
 def _is_product(to_check: Any) -> bool:
@@ -23,7 +32,7 @@ def _is_product(to_check: Any) -> bool:
     return False
 
 
-def _is_fraction(to_check: Any) -> bool:  # pragma: no cover
+def _is_fraction(to_check: Any) -> bool:
     """
     Checks whether something represents one unit divided by another.
     :param to_check: The argument to check.
@@ -73,21 +82,91 @@ def _collapse_unitless(product: Mapping[UnitType, int],
     return modified, simplified
 
 
-def flatten(to_flatten: UnitType) -> Tuple[Dict[UnitType, int],
-                                           Dict[UnitType, int]]:
+def _canonicalize_types(products: Iterable[Dict[UnitType, int]]
+                        ) -> Tuple[bool, List[Dict[UnitType, int]]]:
     """
-    Decomposes a UnitType into a set of sub-types that make up the numerator and
-    denominator. None of these sub-units will be compound.
+    Sometimes, we might end up with a compound unit type that has multiple
+    instances of the same UnitType in it. For instance, consider the type
+    in * m. In order to avoid dealing with this nastiness, our policy is to
+    choose one "canonical" instance of each UnitType and only use that in the
+    CompoundUnit. Given products of UnitTypes that potentially contain
+    multiple instances of the same class, this function manipulates them such
+    that collectively, they only contains one instance. (It will always use an
+    instance that produces the standard unit.)
+    For example, as mentioned above, if we pass it {in: 1, m: 1}, it would
+    return {m: 1}, assuming meters are defined as the standard unit.
+    :param products: The products of UnitTypes to canonicalize.
+    :return: Whether the input was modified, and the canonicalized products, in
+    the same order as the input.
+    """
+    # Maps a UnitType class to the canonical instance of that class.
+    type_class_to_instance = {}
+
+    def _canonicalize_one(product: Dict[UnitType, int]
+                          ) -> Tuple[bool, Dict[UnitType, int]]:
+        """
+        Helper function that canonicalizes a single product dict.
+        :param product: The product to canonicalize.
+        :return: Whether the input was changed, and the canonicalized product.
+        """
+        input_is_canonical = True
+        for unit_type in product:
+            unit_type_class = unit_type.__class__
+
+            if unit_type_class not in type_class_to_instance:
+                # In this case, there are no other instances of this type, so
+                # this one can be the canonical one.
+                type_class_to_instance[unit_type_class] = unit_type
+            elif unit_type != type_class_to_instance[unit_type_class]:
+                # Otherwise, there are other instances, which means we should
+                # use the one that produces standard units.
+                type_class_to_instance[unit_type_class] = \
+                    unit_type.standard_unit_class()
+                input_is_canonical = False
+
+        if input_is_canonical:
+            # If this is the case, our input is already in canonical form and we
+            # can simply return it.
+            return False, product
+
+        # Now re-make the product using only canonical instances.
+        canonical_product = {}
+        for unit_type, power in product.items():
+            canonical_instance = type_class_to_instance[unit_type.__class__]
+
+            if canonical_instance not in canonical_product:
+                canonical_product[canonical_instance] = 0
+            canonical_product[canonical_instance] += power
+
+        return True, canonical_product
+
+    # Canonicalize all of them using the same canonical instances.
+    any_changed = False
+    canonical_products = []
+    for one_product in products:
+        one_changed, one_canonical = _canonicalize_one(one_product)
+        canonical_products.append(one_canonical)
+        any_changed = any_changed or one_changed
+
+    return any_changed, canonical_products
+
+
+def flatten(to_flatten: UnitOrType) -> Tuple[Dict[UnitOrType, int],
+                                             Dict[UnitOrType, int]]:
+    """
+    Decomposes a Unit or UnitType into a set of sub-units or sub-types that make
+    up the numerator and denominator. None of these sub-units or sub-types will
+    be compound.
     :param to_flatten: The Unit or UnitType to flatten.
-    :return: The set of sub-units that make up the numerator and denominator,
-    with the corresponding power of each sub-unit.
+    :return: The set of sub-units or sub-types that make up the numerator and
+    denominator, with the corresponding power of each one.
     """
     numerator = {}
     denominator = {}
     expandable_numerator = [to_flatten]
     expandable_denominator = []
 
-    def flatten_compound(maybe_compound: UnitType, invert=False) -> bool:
+    def flatten_compound(maybe_compound: UnitOrType, invert=False) -> bool:
         """
         Tries to flatten a UnitType.
         :param maybe_compound: The unit to expand, which might be a compound
@@ -101,8 +180,7 @@ def flatten(to_flatten: UnitType) -> Tuple[Dict[UnitType, int],
         """
         # We can cast presumptively because it doesn't actually perform a
         # runtime check.
-        as_compound = cast('compound_unit_type.CompoundUnitType',
-                           maybe_compound)
+        as_compound = cast(CompoundUnitOrType, maybe_compound)
 
         # Decide what goes on what side of the rational expression.
         same_side = expandable_numerator
@@ -213,32 +291,50 @@ def un_flatten(numerator: Mapping[UnitType, int],
     return type_factories.div(prod_numerator, prod_denominator)
 
 
-def simplify(to_simplify: 'compound_unit_type.CompoundUnitType',
-             type_factories: CompoundTypeFactories) -> UnitType:
+@functools.singledispatch
+def simplify(to_simplify: Any,
+             type_factories: CompoundTypeFactories
+             ) -> NoReturn:  # pragma: no cover
     """
     Takes an input, and puts it in the simplest possible form. For instance,
     we pass it CompoundUnitType representing (m * s) / s ^ 2, it would return a
-    CompoundUnitType representing m / s.
+    CompoundUnitType representing m / s. This works for both units and types.
 
-    A note about conversions: This function is cautious, and will avoid making
-    any changes that could change the numeric value of anything in the input
-    unit. For instance, we should technically be able to simplify something
-    like (N * m) / (in * s), because we have an implicit conversion from in to
-    m. However, this would change the raw value of any instances of the input
-    unit type. Therefore, we do not make this simplification automatically.
+    A note about conversions: This function is happy to perform implicit
+    conversions. For instance, it will successfully simplify something like
+    (N * m) / (in * s), because we have an implicit conversion from in to m.
+    However, if this is a UnitType, equivalent instances of the simplified and
+    non-simplified versions will have different raw values. This is something
+    to be aware of when simplifying UnitTypes.
+
+    If it is a Unit that is being simplified instead, these conversions are
+    performed automatically, and the result will have the correct raw value.
     :param to_simplify: The UnitType to simplify.
     :param type_factories: The factories that we will use for creating new
     CompoundUnitTypes.
     :return: If no simplification can be performed, it simply returns the input.
-    Otherwise, it returns a new, equivalent CompoundUnitType in the simplest
+    Otherwise, it returns a new, equivalent UnitType or Unit in the simplest
     form possible.
     """
+    raise NotImplementedError("simplify() is not implemented for {}."
+                              .format(to_simplify))
+
+
+@simplify.register
+def simplify_type(to_simplify: UnitType,
+                  type_factories: CompoundTypeFactories) -> UnitType:
     # Begin by flattening the input.
     numerator, denominator = flatten(to_simplify)
     # Remove redundant unitless types.
-    num_changed, numerator = _collapse_unitless(numerator)
-    denom_changed, denominator = _collapse_unitless(denominator,
-                                                    remove_all=True)
+    collapsed_num_changed, numerator = _collapse_unitless(numerator)
+    collapsed_denom_changed, denominator = _collapse_unitless(denominator,
+                                                              remove_all=True)
+    # Remove redundant UnitType instances.
+    canonical_changed, as_canonical = _canonicalize_types(
+        (numerator, denominator))
+    numerator, denominator = as_canonical
+    any_changed = collapsed_num_changed or collapsed_denom_changed or \
+        canonical_changed
 
     # Since flattening removes any compound units, we can assume that types are
     # compatible iff a simple reference equality condition is satisfied.
@@ -250,7 +346,7 @@ def simplify(to_simplify: 'compound_unit_type.CompoundUnitType',
             # This is redundant, and we can remove it.
             redundant_types.append(divisor)
 
-    if not redundant_types and not num_changed and not denom_changed:
+    if not redundant_types and not any_changed:
         # What we passed in can't be simplified.
         return to_simplify
 
@@ -268,3 +364,40 @@ def simplify(to_simplify: 'compound_unit_type.CompoundUnitType',
 
     # Convert into a new CompoundUnitType.
     return un_flatten(numerator, denominator, type_factories)
+
+
+@simplify.register
+def simplify_unit(to_simplify: UnitInterface,
+                  type_factories: CompoundTypeFactories) -> UnitInterface:
+    # Now we need to handle possible implicit conversions. We start by breaking
+    # up our CompoundUnit into its component sub-units.
+    numerator, denominator = flatten(to_simplify)
+    # Maps the sub-unit type classes to the sub-unit instances that use them.
+    types_to_units = {}
+    combined = numerator.copy()
+    combined.update(denominator)
+    for unit in combined:
+        if unit.type_class not in types_to_units:
+            types_to_units[unit.type_class] = []
+        types_to_units[unit.type_class].append(unit)
+
+    # Figure out which units need to be standardized, and calculate the raw
+    # value of the result.
+    raw_value = np.asarray(1.0)
+    for unit in numerator:
+        to_mul = unit
+        if len(types_to_units[unit.type_class]) != 1:
+            # This needs to be converted to standard form before it can be
+            # safely used.
+            to_mul = unit.to_standard()
+        raw_value *= to_mul.raw
+    for unit in denominator:
+        to_div = unit
+        if len(types_to_units[unit.type_class]) != 1:
+            to_div = unit.to_standard()
+        raw_value /= to_div.raw
+
+    # Simplify our type. This will be what we use to create the final output
+    # unit.
+    simple_type = simplify(to_simplify.type, type_factories)
+    return simple_type(raw_value)

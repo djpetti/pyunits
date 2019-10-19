@@ -79,7 +79,7 @@ class CompoundUnitType(UnitType):
                 # circumstances.
                 will_accept = False
 
-            elif left_type.__class__ != right_type.__class__:
+            elif left_type != right_type:
                 # For multiplication, we only allow it if the two types are
                 # identical, i.e. this is a squared unit.
                 will_accept = False

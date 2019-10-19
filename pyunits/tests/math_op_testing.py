@@ -70,24 +70,13 @@ def test_mul_incompatible_unit(unit: UnitInterface, mock_type: mock.Mock,
 
     # It should have applied the compound unit to the operands.
     compound_unit_type.apply_to.assert_called_once_with(unit, other_unit)
-    # It should have simplified the unit type.
-    mock_simplify.assert_called_once_with(compound_unit_type, mock.ANY)
 
-    if not simplify:
-        # It should have used the original type.
-        compound_unit_type.apply_to.assert_called_once_with(unit, other_unit)
+    # It should have simplified the compound unit.
+    compound_unit = compound_unit_type.apply_to.return_value
+    mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
 
-        # It should have returned the compound unit.
-        assert product == compound_unit_type.apply_to.return_value
-
-    else:
-        # It should have created the simplified unit.
-        mock_simplified.assert_called_once()
-        args, _ = mock_simplified.call_args
-        np.testing.assert_array_almost_equal(args[0], np.array(42.0))
-
-        # It should have returned the compound unit.
-        assert product == mock_simplified.return_value
+    # It should have returned the simplified unit.
+    assert product == mock_simplify.return_value
 
 
 def test_div_incompatible_unit(unit: UnitInterface, mock_type: mock.Mock,
@@ -152,21 +141,10 @@ def test_div_incompatible_unit(unit: UnitInterface, mock_type: mock.Mock,
 
     # It should have applied the compound unit to the operands.
     compound_unit_type.apply_to.assert_called_once_with(unit, other_unit)
-    # It should have simplified the unit type.
-    mock_simplify.assert_called_once_with(compound_unit_type, mock.ANY)
 
-    if not simplify:
-        # It should have used the original type.
-        compound_unit_type.apply_to.assert_called_once_with(unit, other_unit)
+    # It should have simplified the compound unit.
+    compound_unit = compound_unit_type.apply_to.return_value
+    mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
 
-        # It should have returned the compound unit.
-        assert quotient == compound_unit_type.apply_to.return_value
-
-    else:
-        # It should have created the simplified unit.
-        mock_simplified.assert_called_once()
-        args, _ = mock_simplified.call_args
-        np.testing.assert_array_almost_equal(args[0], np.array(42.0))
-
-        # It should have returned the compound unit.
-        assert quotient == mock_simplified.return_value
+    # It should have returned the compound unit.
+    assert quotient == mock_simplify.return_value

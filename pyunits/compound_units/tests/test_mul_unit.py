@@ -55,8 +55,6 @@ class TestMulUnit:
                 mock_simplify, \
                 mock.patch(unit_base.__name__ + ".WrapNumeric") as \
                 mock_wrap_numeric:
-            # Make it look like nothing can be simplified.
-            mock_simplify.side_effect = lambda x, _: x
             # By default, make the WrapNumeric decorator return the function
             # unchanged.
             mock_wrap_numeric.return_value.side_effect = lambda x: x
@@ -95,19 +93,21 @@ class TestMulUnit:
 
         # It should have converted the other unit.
         config.mock_unit_type.assert_called_once_with(other_unit)
-        # It should have created a new compound unit.
+        # It should have created a new compound unit type.
         # functools.partial() will add an extra argument here.
         config.mock_unit_type.get.assert_called_once_with(
             Operation.MUL, config.mock_unit_type, config.mock_unit_type)
+        compound_unit_type = config.mock_unit_type.get.return_value
 
-        compound_unit = config.mock_unit_type.get.return_value
-        # It should have tried simplifying.
+        # It should have created a new compound unit.
+        compound_unit_type.apply_to.assert_called_once_with(config.mul_unit,
+                                                            converted)
+        compound_unit = compound_unit_type.apply_to.return_value
+
+        # It should have simplified it.
         config.mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
-        compound_unit.apply_to.assert_called_once_with(config.mul_unit,
-                                                       converted)
-
         # It should have returned the compound unit.
-        assert product == compound_unit.apply_to.return_value
+        assert product == config.mock_simplify.return_value
 
     def test_raw(self, config: UnitConfig) -> None:
         """

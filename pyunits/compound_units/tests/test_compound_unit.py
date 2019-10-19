@@ -89,8 +89,6 @@ class TestCompoundUnit:
                 mock_simplify, \
                 mock.patch(unit_base.__name__ + ".WrapNumeric") as \
                 mock_wrap_numeric:
-            # Make it look like it never simplifies anything.
-            mock_simplify.side_effect = lambda x, _: x
             # Make it look like the decorator doesn't change the function.
             mock_wrap_numeric.return_value.side_effect = lambda x: x
 
