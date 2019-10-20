@@ -47,8 +47,10 @@ class Unitless(UnitInterface):
         See superclass for documentation.
         """
         if isinstance(other, UnitInterface):
-            # In this case, we just multiply the raw values.
-            return other.type(other.raw * self.raw)
+            # We don't handle normal multiplication in this class, and instead
+            # rely on the other unit's reflected multiplication operation.
+            raise NotImplementedError("Multiplication of a unitless value is"
+                                      " not implemented.")
         else:
             # If it's a raw numeric value, the only consideration we need to
             # make is keeping it wrapped in a Unitless value.
@@ -58,9 +60,9 @@ class Unitless(UnitInterface):
         """
         See superclass for documentation.
         """
-        if isinstance(other, Unitless):
+        if isinstance(other, type(self)):
             # In this case, we just divide the raw values.
-            return other.type(self.raw / other.raw)
+            return self.type(self.raw / other.raw)
         elif isinstance(other, UnitInterface):
             # We don't handle normal division in this class, and instead rely
             # on the other unit's reflected division operator.
@@ -84,6 +86,14 @@ class Unitless(UnitInterface):
         See superclass for documentation.
         """
         return self.type.__class__
+
+    @classmethod
+    def is_standard(cls) -> bool:
+        """
+        See superclass for documentation.
+        """
+        # This unit is already in standard form.
+        return True
 
     def to_standard(self) -> 'Unitless':
         """
@@ -113,4 +123,5 @@ class Unitless(UnitInterface):
         """
         # If you're trying to cast a unitless value, something has gone
         # terribly wrong.
-        raise ValueError("A unitless value should not ever need to be casted.")
+        raise NotImplementedError("A unitless value should not ever need to be "
+                                  "casted.")
