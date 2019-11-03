@@ -2,6 +2,8 @@
 omit =
     # Exclude tests themselves.
     */tests/*
+    # Exclude conftest files, which could end up in a code directory.
+    *conftest.py
     # Exclude venv.
     venv/*
     # We don't test examples.

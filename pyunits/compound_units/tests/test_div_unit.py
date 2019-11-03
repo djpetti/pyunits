@@ -3,7 +3,6 @@ import unittest.mock as mock
 
 import pytest
 
-from pyunits import unit_base
 from pyunits.compound_units import div_unit
 from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.unit_interface import UnitInterface
@@ -21,15 +20,11 @@ class TestDivUnit:
         :param mock_unit_type: The mocked type of the MulUnit.
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
-        :param mock_unitless_class: The mocked Unitless class.
-        :param mock_wrap_numeric: The mocked WrapNumeric decorator.
         """
         div_unit: div_unit.DivUnit
         mock_unit_type: mock.Mock
         mock_left_unit: mock.Mock
         mock_right_unit: mock.Mock
-        mock_unitless_class: mock.Mock
-        mock_wrap_numeric: mock.Mock
 
     @classmethod
     @pytest.fixture
@@ -50,63 +45,10 @@ class TestDivUnit:
         my_div_unit = div_unit.DivUnit(mock_unit_type, mock_left_unit,
                                        mock_right_unit)
 
-        with mock.patch(unit_base.__name__ + ".Unitless") as mock_unitless, \
-                mock.patch(unit_base.__name__ + ".WrapNumeric") as \
-                mock_wrap_numeric:
-            # By default, make the WrapNumeric decorator return the function
-            # unchanged.
-            mock_wrap_numeric.return_value.side_effect = lambda x: x
-
-            yield cls.UnitConfig(div_unit=my_div_unit,
-                                 mock_unit_type=mock_unit_type,
-                                 mock_left_unit=mock_left_unit,
-                                 mock_right_unit=mock_right_unit,
-                                 mock_unitless_class=mock_unitless,
-                                 mock_wrap_numeric=mock_wrap_numeric)
-
-            # Finalization done implicitly upon exit from context manager.
-
-    def test_div_compatible_unit(self, config: UnitConfig) -> None:
-        """
-        Tests that the division operation works correctly when a unit is
-        divided by another with a compatible type.
-        :param config: The configuration to use.
-        """
-        # Arrange.
-        # Set the raw value of the sub-units.
-        mock_left_raw = mock.PropertyMock(return_value=100)
-        mock_right_raw = mock.PropertyMock(return_value=5)
-        type(config.mock_left_unit).raw = mock_left_raw
-        type(config.mock_right_unit).raw = mock_right_raw
-
-        # Make another DivUnit to divide by.
-        other_unit = mock.Mock(spec=div_unit.DivUnit)
-
-        # Make sure converted units have the same type as their parent.
-        converted = config.mock_unit_type.return_value
-        mock_type_property = mock.PropertyMock(
-            return_value=config.mock_unit_type)
-        type(converted).type = mock_type_property
-        # Mock the raw property too.
-        mock_converted_raw = mock.PropertyMock(return_value=4)
-        type(converted).raw = mock_converted_raw
-
-        expected_quotient = 100 / 5 / 4
-
-        # Act.
-        quotient = config.div_unit / other_unit
-
-        # Assert.
-        # It should have checked compatibility.
-        other_unit.type.is_compatible.assert_called_once_with(
-            config.mock_unit_type)
-
-        # It should have converted the other unit.
-        config.mock_unit_type.assert_called_once_with(other_unit)
-
-        # It should have returned a unitless value.
-        config.mock_unitless_class.assert_called_once_with(expected_quotient)
-        assert quotient == config.mock_unitless_class.return_value
+        return cls.UnitConfig(div_unit=my_div_unit,
+                              mock_unit_type=mock_unit_type,
+                              mock_left_unit=mock_left_unit,
+                              mock_right_unit=mock_right_unit)
 
     def test_raw(self, config: UnitConfig) -> None:
         """

@@ -22,15 +22,11 @@ class TestMulUnit:
         :param mock_unit_type: The mocked type of the MulUnit.
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
-        :param mock_simplify: The mocked simplify function.
-        :param mock_wrap_numeric: The mocked WrapNumeric decorator.
         """
         mul_unit: mul_unit.MulUnit
         mock_unit_type: mock.Mock
         mock_left_unit: mock.Mock
         mock_right_unit: mock.Mock
-        mock_simplify: mock.Mock
-        mock_wrap_numeric: mock.Mock
 
     @classmethod
     @pytest.fixture
@@ -51,63 +47,10 @@ class TestMulUnit:
         my_mul_unit = mul_unit.MulUnit(mock_unit_type, mock_left_unit,
                                        mock_right_unit)
 
-        with mock.patch(unit_base.__name__ + ".unit_analysis.simplify") as \
-                mock_simplify, \
-                mock.patch(unit_base.__name__ + ".WrapNumeric") as \
-                mock_wrap_numeric:
-            # By default, make the WrapNumeric decorator return the function
-            # unchanged.
-            mock_wrap_numeric.return_value.side_effect = lambda x: x
-
-            yield cls.UnitConfig(mul_unit=my_mul_unit,
-                                 mock_unit_type=mock_unit_type,
-                                 mock_left_unit=mock_left_unit,
-                                 mock_right_unit=mock_right_unit,
-                                 mock_simplify=mock_simplify,
-                                 mock_wrap_numeric=mock_wrap_numeric)
-            # Finalization done upon exit from context manager.
-
-    def test_mul_compatible_unit(self, config: UnitConfig) -> None:
-        """
-        Tests that the multiplication operation works correctly when a unit is
-        multiplied by another with a compatible type.
-        :param config: The configuration to use.
-        """
-        # Arrange.
-        # Make another MulUnit to multiply by.
-        other_unit = mock.Mock(spec=mul_unit.MulUnit)
-
-        # Make sure converted units have the same type as their parent.
-        converted = config.mock_unit_type.return_value
-        mock_type_property = mock.PropertyMock(
-            return_value=config.mock_unit_type)
-        type(converted).type = mock_type_property
-
-        # Act.
-        product = config.mul_unit * other_unit
-
-        # Assert.
-        # It should have checked compatibility.
-        other_unit.type.is_compatible.assert_called_once_with(
-            config.mock_unit_type)
-
-        # It should have converted the other unit.
-        config.mock_unit_type.assert_called_once_with(other_unit)
-        # It should have created a new compound unit type.
-        # functools.partial() will add an extra argument here.
-        config.mock_unit_type.get.assert_called_once_with(
-            Operation.MUL, config.mock_unit_type, config.mock_unit_type)
-        compound_unit_type = config.mock_unit_type.get.return_value
-
-        # It should have created a new compound unit.
-        compound_unit_type.apply_to.assert_called_once_with(config.mul_unit,
-                                                            converted)
-        compound_unit = compound_unit_type.apply_to.return_value
-
-        # It should have simplified it.
-        config.mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
-        # It should have returned the compound unit.
-        assert product == config.mock_simplify.return_value
+        return cls.UnitConfig(mul_unit=my_mul_unit,
+                              mock_unit_type=mock_unit_type,
+                              mock_left_unit=mock_left_unit,
+                              mock_right_unit=mock_right_unit)
 
     def test_raw(self, config: UnitConfig) -> None:
         """

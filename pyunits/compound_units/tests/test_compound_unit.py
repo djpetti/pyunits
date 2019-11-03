@@ -1,17 +1,14 @@
-from typing import Callable, NamedTuple, Type
+from typing import NamedTuple, Type
 import unittest.mock as mock
-
-import numpy as np
 
 import pytest
 
-from pyunits import unit_base
-from pyunits.compound_units.compound_unit import CompoundUnit
+from pyunits.compound_units import compound_unit
 from pyunits.compound_units.compound_unit_type import CompoundUnitType
 from pyunits.compound_units.div_unit import DivUnit
 from pyunits.compound_units.mul_unit import MulUnit
 from pyunits.compound_units.operations import Operation
-from pyunits.tests import math_op_testing
+from pyunits.tests.testing_types import UnitFactory
 from pyunits.types import RequestType
 from pyunits.unit_interface import UnitInterface
 
@@ -28,15 +25,15 @@ class TestCompoundUnit:
         :param mock_unit_type: The mocked type of the MulUnit.
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
-        :param mock_simplify: The mocked simplify function.
-        :param mock_wrap_numeric: The mocked WrapNumeric decorator.
+        :param mock_do_mul: The mocked do_mul() function.
+        :param mock_do_div: The mocked do_div() function.
         """
-        compound_unit: CompoundUnit
+        compound_unit: compound_unit.CompoundUnit
         mock_unit_type: mock.Mock
         mock_left_unit: mock.Mock
         mock_right_unit: mock.Mock
-        mock_simplify: mock.Mock
-        mock_wrap_numeric: mock.Mock
+        mock_do_mul: mock.Mock
+        mock_do_div: mock.Mock
 
     class ClassSpecificConfig(NamedTuple):
         """
@@ -51,7 +48,8 @@ class TestCompoundUnit:
     _DIV_UNIT_CONFIG = ClassSpecificConfig(class_under_test=DivUnit)
 
     @classmethod
-    @pytest.fixture(params=[_MUL_UNIT_CONFIG, _DIV_UNIT_CONFIG])
+    @pytest.fixture(params=[_MUL_UNIT_CONFIG, _DIV_UNIT_CONFIG],
+                    ids=["mul_unit", "div_unit"])
     def class_specific_config(cls, request: RequestType) -> ClassSpecificConfig:
         """
         Fixture that produces the class-specific configuration for each
@@ -85,19 +83,16 @@ class TestCompoundUnit:
         my_compound_unit = my_class(mock_unit_type, mock_left_unit,
                                     mock_right_unit)
 
-        with mock.patch(unit_base.__name__ + ".unit_analysis.simplify") as \
-                mock_simplify, \
-                mock.patch(unit_base.__name__ + ".WrapNumeric") as \
-                mock_wrap_numeric:
-            # Make it look like the decorator doesn't change the function.
-            mock_wrap_numeric.return_value.side_effect = lambda x: x
-
+        with mock.patch(compound_unit.__name__ + ".do_mul") as \
+                mock_do_mul, \
+                mock.patch(compound_unit.__name__ + ".do_div") as \
+                mock_do_div:
             yield cls.UnitConfig(compound_unit=my_compound_unit,
                                  mock_unit_type=mock_unit_type,
                                  mock_left_unit=mock_left_unit,
                                  mock_right_unit=mock_right_unit,
-                                 mock_simplify=mock_simplify,
-                                 mock_wrap_numeric=mock_wrap_numeric)
+                                 mock_do_mul=mock_do_mul,
+                                 mock_do_div=mock_do_div)
 
             # Finalization done upon exit from context manager.
 
@@ -209,29 +204,57 @@ class TestCompoundUnit:
         # Assert.
         assert got_operation == Operation.MUL
 
-    @pytest.mark.parametrize("test_func",
-                             [math_op_testing.test_mul_incompatible_unit,
-                              math_op_testing.test_div_incompatible_unit])
-    @pytest.mark.parametrize("simplify", [False, True])
-    def test_incompatible_unit(self, config: UnitConfig,
-                               test_func: Callable,
-                               simplify: bool) -> None:
+    @pytest.mark.parametrize("is_reversed", [False, True],
+                             ids=["normal", "reversed"])
+    def test_mul(self, config: UnitConfig, unit_factory: UnitFactory,
+                 is_reversed: bool) -> None:
         """
-        Tests that arithmetic operations work correctly when the operands have
-        incompatible types.
-        :param config: The configuration to use.
-        :param test_func: The function to use for performing the test.
-        :param simplify: Whether we should simulate simplification of the
-        resulting type.
+        Tests that we can multiply the compound unit by another.
+        :param config: The configuration to use for testing.
+        :param unit_factory: The UnitFactory to use for creating test units.
+        :param is_reversed: Whether to use reversed multiplication for the test.
         """
         # Arrange.
-        # Make it look like the result of to_standard() has an actual value.
-        standardized = config.mock_unit_type.apply_to.return_value
-        mock_raw = mock.PropertyMock(return_value=np.array(5.0))
-        type(standardized).raw = mock_raw
+        # Create a fake unit to multiply by.
+        mul_by = unit_factory("Unit1", 1.0)
 
-        # Act and assert.
-        test_func(config.compound_unit, config.mock_unit_type,
-                  config.mock_unit_type.get, config.mock_simplify,
-                  simplify=simplify,
-                  passes_op=True)
+        # Act.
+        if not is_reversed:
+            product = config.compound_unit * mul_by
+        else:
+            product = mul_by * config.compound_unit
+
+        # Assert.
+        # It should do the same thing either way because for multiplication,
+        # order doesn't matter.
+        config.mock_do_mul.assert_called_once_with(mock.ANY,
+                                                   config.compound_unit,
+                                                   mul_by)
+        assert product == config.mock_do_mul.return_value
+
+    @pytest.mark.parametrize("is_reversed", [False, True],
+                             ids=["normal", "reversed"])
+    def test_div(self, config: UnitConfig, unit_factory: UnitFactory,
+                 is_reversed: bool) -> None:
+        """
+        Tests that we can divide the compound unit by another.
+        :param config: The configuration to use for testing.
+        :param unit_factory: The UnitFactory to use for creating test units.
+        :param is_reversed: Whether to use reversed multiplication for the test.
+        """
+        # Arrange.
+        # Create a fake unit to divide by.
+        div_by = unit_factory("Unit1", 1.0)
+
+        # Act.
+        if not is_reversed:
+            quotient = config.compound_unit / div_by
+            do_div_args = (config.compound_unit, div_by)
+        else:
+            quotient = div_by / config.compound_unit
+            do_div_args = (div_by, config.compound_unit)
+
+        # Assert.
+        config.mock_do_div.assert_called_once_with(mock.ANY,
+                                                   *do_div_args)
+        assert quotient == config.mock_do_div.return_value

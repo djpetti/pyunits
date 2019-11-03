@@ -56,6 +56,22 @@ class TestUnitless:
         # It should have updated the raw value.
         assert product.raw == pytest.approx(self._UNITLESS_VALUE * 2.0)
 
+    def test_mul_unitless(self, unitless: Unitless) -> None:
+        """
+        Tests that we can multiply a Unitless value by another one.
+        :param unitless: The Unitless value to try multiplying.
+        """
+        # Arrange.
+        # Create another Unitless value to multiply.
+        mul_by = Unitless(2.0)
+
+        # Act.
+        product = unitless * mul_by
+
+        # Assert.
+        # It should have updated the raw value.
+        assert product.raw == pytest.approx(self._UNITLESS_VALUE * 2.0)
+
     def test_mul_unit(self, unitless: Unitless,
                       mock_unit: mock.Mock) -> None:
         """
@@ -76,11 +92,22 @@ class TestUnitless:
         :param unitless: The Unitless value to try dividing.
         """
         # Arrange done in fixtures.
+        # Act and assert.
+        with pytest.raises(NotImplementedError, match="Division"):
+            unitless / 2.0
+
+    def test_rdiv(self, unitless: Unitless) -> None:
+        """
+        Tests that reversed division works.
+        :param unitless: The Unitless value to try dividing by.
+        """
+        # Arrange done in fixtures.
         # Act.
-        quotient = unitless / 2.0
+        quotient = 2.0 / unitless
 
         # Assert.
-        assert quotient.raw == pytest.approx(self._UNITLESS_VALUE / 2.0)
+        # It should have updated the raw value.
+        assert quotient.raw == pytest.approx(2.0 / self._UNITLESS_VALUE)
 
     def test_div_unit(self, unitless: Unitless, mock_unit: mock.Mock) -> None:
         """

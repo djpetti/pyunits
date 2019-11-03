@@ -7,9 +7,8 @@ import pytest
 
 from pyunits.exceptions import UnitError
 from pyunits.types import CompoundTypeFactories, UnitValue
+from pyunits.tests.testing_types import UnitFactory
 from pyunits import unit
-from pyunits import unit_base
-from . import math_op_testing
 from .helpers import MyUnit, MyStandardUnit
 
 
@@ -26,16 +25,16 @@ class TestUnit:
         :param mock_type: The UnitType that the Unit was constructed with.
         :param mock_mul: The mock compound_units.Mul function.
         :param mock_div: The mock compound_units.Div function.
-        :param mock_simplify: The mock simplify function.
-        :param mock_wrap_numeric: The mocked WrapNumeric decorator.
+        :param mock_do_mul: The mocked do_mul() function.
+        :param mock_do_div: The mocked do_div() function.
         """
         standard_unit: unit.Unit
-        unit: unit.Unit
+        other_unit: unit.Unit
         mock_type: mock.Mock
         mock_mul: mock.Mock
         mock_div: mock.Mock
-        mock_simplify: mock.Mock
-        mock_wrap_numeric: mock.Mock
+        mock_do_mul: mock.Mock
+        mock_do_div: mock.Mock
 
     @classmethod
     @pytest.fixture(params=[10, 5.0, np.array([1, 2, 3]), [1, 2, 3]])
@@ -59,19 +58,15 @@ class TestUnit:
         unit.Unit.COMPOUND_TYPE_FACTORIES = CompoundTypeFactories(mul=mock_mul,
                                                                   div=mock_div)
 
-        with mock.patch(unit_base.__name__ + ".unit_analysis.simplify") as \
-                mock_simplify, \
-                mock.patch(unit_base.__name__ + ".WrapNumeric") as \
-                mock_wrap_numeric:
-            # Make the wrapper not change the function.
-            mock_wrap_numeric.return_value.side_effect = lambda x: x
-
-            yield cls.UnitConfig(unit=my_unit, standard_unit=standard_unit,
+        with mock.patch(unit.__name__ + ".do_mul") as mock_do_mul, \
+                mock.patch(unit.__name__ + ".do_div") as mock_do_div:
+            yield cls.UnitConfig(other_unit=my_unit,
+                                 standard_unit=standard_unit,
                                  mock_type=unit_type,
                                  mock_mul=mock_mul,
                                  mock_div=mock_div,
-                                 mock_simplify=mock_simplify,
-                                 mock_wrap_numeric=mock_wrap_numeric)
+                                 mock_do_mul=mock_do_mul,
+                                 mock_do_div=mock_do_div)
 
             # Finalization done upon exit from context manager.
 
@@ -92,11 +87,11 @@ class TestUnit:
 
         # Act.
         # Create the unit.
-        unit = MyStandardUnit(unit_type, unit_value)
+        this_unit = MyStandardUnit(unit_type, unit_value)
 
         # Assert.
         # The raw value should be correct.
-        np.testing.assert_array_equal(expected_value, unit.raw)
+        np.testing.assert_array_equal(expected_value, this_unit.raw)
 
     def test_to_standard(self, config: UnitConfig) -> None:
         """
@@ -105,11 +100,11 @@ class TestUnit:
         """
         # Arrange done in fixtures.
         # Act.
-        standard_converted = config.unit.to_standard()
+        standard_converted = config.other_unit.to_standard()
 
         # It should have been correctly converted.
         assert isinstance(standard_converted, MyStandardUnit)
-        np.testing.assert_array_equal(config.unit.raw *
+        np.testing.assert_array_equal(config.other_unit.raw *
                                       MyUnit.CONVERSION_FACTOR,
                                       standard_converted.raw)
 
@@ -136,11 +131,11 @@ class TestUnit:
         # Arrange done in fixtures.
         # Act.
         # Create a new unit from this one.
-        new_unit = MyStandardUnit(config.mock_type, config.unit)
+        new_unit = MyStandardUnit(config.mock_type, config.other_unit)
 
         # Assert.
         # It should have done the conversion.
-        np.testing.assert_array_equal(config.unit.raw *
+        np.testing.assert_array_equal(config.other_unit.raw *
                                       MyUnit.CONVERSION_FACTOR,
                                       new_unit.raw)
 
@@ -161,7 +156,7 @@ class TestUnit:
 
         # Act and assert.
         with pytest.raises(UnitError):
-            MyStandardUnit(my_type, config.unit)
+            MyStandardUnit(my_type, config.other_unit)
 
     def test_equals(self, config: UnitConfig) -> None:
         """
@@ -175,13 +170,13 @@ class TestUnit:
         mock_type.side_effect = lambda other: MyUnit(mock_type, other)
 
         # Create a unit that is the exact same as this one.
-        same_unit = MyUnit(mock_type, config.unit.raw)
+        same_unit = MyUnit(mock_type, config.other_unit.raw)
         # Create a unit that is different.
-        different_unit = MyUnit(mock_type, config.unit.raw + 1)
+        different_unit = MyUnit(mock_type, config.other_unit.raw + 1)
 
         # Act and assert.
-        assert config.unit.equals(same_unit)
-        assert not config.unit.equals(different_unit)
+        assert config.other_unit.equals(same_unit)
+        assert not config.other_unit.equals(different_unit)
 
     def test_eq_other_unit(self, config: UnitConfig) -> None:
         """
@@ -197,13 +192,13 @@ class TestUnit:
 
         # Create a unit that is equivalent to this one.
         same_unit = MyStandardUnit(mock_type,
-                                   config.unit.raw * MyUnit.CONVERSION_FACTOR)
+                                   config.other_unit.raw * MyUnit.CONVERSION_FACTOR)
         # Create a unit that is not.
-        different_unit = MyStandardUnit(mock_type, config.unit.raw)
+        different_unit = MyStandardUnit(mock_type, config.other_unit.raw)
 
         # Act and assert.
-        assert config.unit.equals(same_unit)
-        assert not config.unit.equals(different_unit)
+        assert config.other_unit.equals(same_unit)
+        assert not config.other_unit.equals(different_unit)
 
     @pytest.mark.parametrize("is_standard", [False, True],
                              ids=["not_standard", "standard"])
@@ -230,7 +225,7 @@ class TestUnit:
         """
         # Arrange done in fixtures.
         # Act and assert.
-        assert config.unit.name == MyUnit.__name__
+        assert config.other_unit.name == MyUnit.__name__
 
     def test_str(self, config: UnitConfig) -> None:
         """
@@ -239,10 +234,11 @@ class TestUnit:
         """
         # Arrange done in fixtures.
         # Act.
-        string_unit = str(config.unit)
+        string_unit = str(config.other_unit)
 
         # Assert.
-        assert string_unit == "{} {}".format(config.unit.raw, MyUnit.__name__)
+        assert string_unit == "{} {}".format(config.other_unit.raw,
+                                             MyUnit.__name__)
 
     def test_cast_to(self, config: UnitConfig) -> None:
         """
@@ -254,85 +250,69 @@ class TestUnit:
         out_unit = mock.MagicMock()
 
         # Act.
-        got_unit = config.unit.cast_to(out_unit)
+        got_unit = config.other_unit.cast_to(out_unit)
 
         # Assert.
         out_type = out_unit.__class__
         # It should have performed the cast.
-        config.mock_type.as_type.assert_called_once_with(config.unit, out_type)
+        config.mock_type.as_type.assert_called_once_with(config.other_unit,
+                                                         out_type)
 
         # It should have initialized the new unit instance.
         out_unit.assert_called_once_with(config.mock_type.as_type.return_value)
         assert got_unit == out_unit.return_value
 
-    def test_mul_compatible_unit(self, config: UnitConfig) -> None:
+    @pytest.mark.parametrize("is_reversed", [False, True],
+                             ids=["normal", "reversed"])
+    def test_mul(self, config: UnitConfig, unit_factory: UnitFactory,
+                 is_reversed: bool) -> None:
         """
-        Tests that the multiplication operation works correctly when a unit is
-        multiplied by another with a compatible type.
-        :param config: The configuration to use.
+        Tests that we can multiply the unit by another.
+        :param config: The configuration to use for testing.
+        :param unit_factory: The UnitFactory to use for creating test units.
+        :param is_reversed: Whether to use reversed multiplication for the test.
         """
         # Arrange.
-        # Make sure converted units have the same type as their parent.
-        converted = config.mock_type.return_value
-        mock_type_property = mock.PropertyMock(return_value=config.mock_type)
-        type(converted).type = mock_type_property
+        # Create a fake unit to multiply by.
+        mul_by = unit_factory("Unit1", 1.0)
 
         # Act.
-        product = config.unit * config.standard_unit
+        if not is_reversed:
+            product = config.other_unit * mul_by
+        else:
+            product = mul_by * config.other_unit
 
         # Assert.
-        # It should have checked compatibility.
-        config.mock_type.is_compatible.assert_called_once_with(config.mock_type)
+        # It should do the same thing either way because for multiplication,
+        # order doesn't matter.
+        config.mock_do_mul.assert_called_once_with(mock.ANY,
+                                                   config.other_unit,
+                                                   mul_by)
+        assert product == config.mock_do_mul.return_value
 
-        # It should have converted the standard unit.
-        config.mock_type.assert_called_once_with(config.standard_unit)
-        # It should have created a new compound unit type.
-        config.mock_mul.assert_called_once_with(config.mock_type,
-                                                config.mock_type)
-        compound_unit_type = config.mock_mul.return_value
-
-        # It should have created the compound unit.
-        compound_unit_type.apply_to.assert_called_once_with(config.unit,
-                                                            converted)
-        compound_unit = compound_unit_type.apply_to.return_value
-
-        # It should have simplified the compound unit.
-        config.mock_simplify.assert_called_once_with(compound_unit, mock.ANY)
-        # It should have returned the compound unit.
-        assert product == config.mock_simplify.return_value
-
-    @pytest.mark.parametrize("simplify", [False, True])
-    def test_mul_incompatible_unit(self, config: UnitConfig,
-                                   simplify: bool) -> None:
+    @pytest.mark.parametrize("is_reversed", [False, True],
+                             ids=["normal", "reversed"])
+    def test_div(self, config: UnitConfig, unit_factory: UnitFactory,
+                 is_reversed: bool) -> None:
         """
-        Tests that the multiplication operation works correctly when a unit is
-        multiplied by another with an incompatible type.
-        :param config: The configuration to use.
-        :param simplify: Whether we should simulate simplification of the
-        resulting type.
+        Tests that we can divide the compound unit by another.
+        :param config: The configuration to use for testing.
+        :param unit_factory: The UnitFactory to use for creating test units.
+        :param is_reversed: Whether to use reversed multiplication for the test.
         """
-        # Arrange, act and assert.
-        math_op_testing.test_mul_incompatible_unit(
-            config.unit, config.mock_type, config.mock_mul,
-            config.mock_simplify,
-            simplify=simplify,
-            passes_op=False
-        )
+        # Arrange.
+        # Create a fake unit to divide by.
+        div_by = unit_factory("Unit1", 1.0)
 
-    @pytest.mark.parametrize("simplify", [False, True])
-    def test_div_incompatible_unit(self, config: UnitConfig,
-                                   simplify: bool) -> None:
-        """
-        Tests that the division operation works correctly when a unit is
-        divided by another with an incompatible type.
-        :param config: The configuration to use.
-        :param simplify: Whether we should simulate simplification of the
-        resulting type.
-        """
-        # Arrange, act and assert.
-        math_op_testing.test_div_incompatible_unit(
-            config.unit, config.mock_type, config.mock_div,
-            config.mock_simplify,
-            simplify=simplify,
-            passes_op=False
-        )
+        # Act.
+        if not is_reversed:
+            quotient = config.other_unit / div_by
+            do_div_args = (config.other_unit, div_by)
+        else:
+            quotient = div_by / config.other_unit
+            do_div_args = (div_by, config.other_unit)
+
+        # Assert.
+        config.mock_do_div.assert_called_once_with(mock.ANY,
+                                                   *do_div_args)
+        assert quotient == config.mock_do_div.return_value

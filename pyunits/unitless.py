@@ -1,8 +1,9 @@
-from typing import Type
+from typing import cast
 
 import numpy as np
 
 from .types import Numeric, UnitValue
+from .unit_base import UnitBase
 from .unit_interface import UnitInterface
 from .unit_type import UnitType
 
@@ -27,7 +28,7 @@ class UnitlessType(UnitType):
 
 
 @UnitlessType.decorate
-class Unitless(UnitInterface):
+class Unitless(UnitBase):
     """
     Represents a unit-less value. By design, these are pretty locked-down, so
     that generally the user has to explicitly extract the raw value in order
@@ -39,22 +40,25 @@ class Unitless(UnitInterface):
         :param unit_type: The UnitlessType instance used to create this class.
         :param value: The unitless value to wrap.
         """
-        self.__type = unit_type
+        super().__init__(unit_type)
         self.__value = np.asarray(value)
 
     def __mul__(self, other: UnitValue) -> UnitInterface:
         """
         See superclass for documentation.
         """
-        if isinstance(other, UnitInterface):
+        if not isinstance(other, UnitInterface):
+            # Our only concern in this case is making sure the result is a
+            # Unitless value.
+            return self.type(self.raw * other)
+        elif isinstance(other, type(self)):
+            # In this case, we just multiply the raw values.
+            return self.type(self.raw * other.raw)
+        else:
             # We don't handle normal multiplication in this class, and instead
             # rely on the other unit's reflected multiplication operation.
             raise NotImplementedError("Multiplication of a unitless value is"
                                       " not implemented.")
-        else:
-            # If it's a raw numeric value, the only consideration we need to
-            # make is keeping it wrapped in a Unitless value.
-            return self.type(other * self.raw)
 
     def __truediv__(self, other: UnitValue) -> UnitInterface:
         """
@@ -63,29 +67,18 @@ class Unitless(UnitInterface):
         if isinstance(other, type(self)):
             # In this case, we just divide the raw values.
             return self.type(self.raw / other.raw)
-        elif isinstance(other, UnitInterface):
+        else:
             # We don't handle normal division in this class, and instead rely
             # on the other unit's reflected division operator.
             raise NotImplementedError("Division of a unitless value is not "
                                       "implemented.")
-        else:
-            # If it's a raw numeric value, the only consideration we need to
-            # make is keeping it wrapped in a Unitless value.
-            return self.type(self.raw / other)
 
-    @property
-    def type(self) -> UnitlessType:
-        """
-        See superclass for documentation.
-        """
-        return self.__type
+    def __rtruediv__(self, other: UnitValue) -> UnitInterface:
+        # The only way that we should ever get here is if we are trying to
+        # divide a raw numerical value.
+        assert not isinstance(other, UnitInterface)
 
-    @property
-    def type_class(self) -> Type:
-        """
-        See superclass for documentation.
-        """
-        return self.type.__class__
+        return self.type(other / self.raw)
 
     @classmethod
     def is_standard(cls) -> bool:

@@ -4,6 +4,7 @@ import numpy as np
 
 from .compound_units import Div, Mul
 from .exceptions import UnitError
+from .mul_div_helpers import do_mul, do_div
 from .types import CompoundTypeFactories, UnitValue
 from .unit_base import UnitBase
 from .unit_interface import UnitInterface
@@ -43,10 +44,13 @@ class Unit(UnitBase, abc.ABC):
             self._set_raw(np.asarray(value))
 
     def __mul__(self, other: UnitValue) -> UnitInterface:
-        return self._do_mul(self.COMPOUND_TYPE_FACTORIES, other)
+        return do_mul(self.COMPOUND_TYPE_FACTORIES, self, other)
 
     def __truediv__(self, other: UnitValue) -> UnitInterface:
-        return self._do_div(self.COMPOUND_TYPE_FACTORIES, other)
+        return do_div(self.COMPOUND_TYPE_FACTORIES, self, other)
+
+    def __rtruediv__(self, other: UnitValue) -> UnitInterface:
+        return do_div(self.COMPOUND_TYPE_FACTORIES, other, self)
 
     def _set_raw(self, raw: np.ndarray) -> None:
         """
