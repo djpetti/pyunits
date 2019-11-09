@@ -23,6 +23,23 @@ class UnitBase(UnitInterface, abc.ABC):
         # Pretty-print the unit.
         return "{} {}".format(self.raw, self.name)
 
+    def __neg__(self) -> UnitInterface:
+        return self.type(-self.raw)
+
+    def __radd__(self, other: UnitValue) -> UnitInterface:
+        # It never matters which way we do addition, so just use the normal
+        # operator.
+        return self.__add__(other)
+
+    def __sub__(self, other: UnitValue) -> UnitInterface:
+        # Subtraction is just adding a negative value.
+        return self.__add__(-other)
+
+    def __rsub__(self, other: UnitValue) -> UnitInterface:
+        # Reversed subtraction can also be implemented using addition.
+        negated = -self
+        return negated.__add__(other)
+
     def __rmul__(self, other: UnitValue) -> UnitInterface:
         # It never matters which way we do multiplication, so just use the
         # normal operator.

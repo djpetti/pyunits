@@ -1,5 +1,3 @@
-from typing import cast
-
 import numpy as np
 
 from .types import Numeric, UnitValue
@@ -79,6 +77,20 @@ class Unitless(UnitBase):
         assert not isinstance(other, UnitInterface)
 
         return self.type(other / self.raw)
+
+    def __add__(self, other: UnitValue) -> UnitInterface:
+        if not isinstance(other, UnitInterface):
+            # Our only concern in this case is making sure the result is a
+            # Unitless value.
+            return self.type(self.raw + other)
+        elif isinstance(other, type(self)):
+            # In this case, we just add the raw values.
+            return self.type(self.raw + other.raw)
+        else:
+            # We don't handle normal addition in this class, and instead
+            # rely on the other unit's reflected addition operation.
+            raise NotImplementedError("Addition of a unitless value is"
+                                      " not implemented.")
 
     @classmethod
     def is_standard(cls) -> bool:

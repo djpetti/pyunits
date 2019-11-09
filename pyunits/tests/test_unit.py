@@ -27,6 +27,7 @@ class TestUnit:
         :param mock_div: The mock compound_units.Div function.
         :param mock_do_mul: The mocked do_mul() function.
         :param mock_do_div: The mocked do_div() function.
+        :param mock_do_add: The mocked do_add() function.
         """
         standard_unit: unit.Unit
         other_unit: unit.Unit
@@ -35,6 +36,7 @@ class TestUnit:
         mock_div: mock.Mock
         mock_do_mul: mock.Mock
         mock_do_div: mock.Mock
+        mock_do_add: mock.Mock
 
     @classmethod
     @pytest.fixture(params=[10, 5.0, np.array([1, 2, 3]), [1, 2, 3]])
@@ -59,14 +61,16 @@ class TestUnit:
                                                                   div=mock_div)
 
         with mock.patch(unit.__name__ + ".do_mul") as mock_do_mul, \
-                mock.patch(unit.__name__ + ".do_div") as mock_do_div:
+                mock.patch(unit.__name__ + ".do_div") as mock_do_div, \
+                mock.patch(unit.__name__ + ".do_add") as mock_do_add:
             yield cls.UnitConfig(other_unit=my_unit,
                                  standard_unit=standard_unit,
                                  mock_type=unit_type,
                                  mock_mul=mock_mul,
                                  mock_div=mock_div,
                                  mock_do_mul=mock_do_mul,
-                                 mock_do_div=mock_do_div)
+                                 mock_do_div=mock_do_div,
+                                 mock_do_add=mock_do_add)
 
             # Finalization done upon exit from context manager.
 
@@ -316,3 +320,89 @@ class TestUnit:
         config.mock_do_div.assert_called_once_with(mock.ANY,
                                                    *do_div_args)
         assert quotient == config.mock_do_div.return_value
+
+    def test_negation(self, config: UnitConfig) -> None:
+        """
+        Tests that a Unit can be negated.
+        :param config: The configuration to use for testing.
+        """
+        # Arrange.
+        # Mock the UnitType invocation so it returns a new unit.
+        config.mock_type.side_effect = lambda x: MyUnit(config.mock_type, x)
+
+        # Act.
+        negated = -config.other_unit
+
+        # Assert.
+        np.testing.assert_array_equal(-config.other_unit.raw, negated.raw)
+
+    @pytest.mark.parametrize("is_reversed", [False, True],
+                             ids=["normal", "reversed"])
+    def test_add(self, config: UnitConfig, unit_factory: UnitFactory,
+                 is_reversed: bool) -> None:
+        """
+        Tests that we can add the unit to another.
+        :param config: The configuration to use for testing.
+        :param unit_factory: The UnitFactory to use for creating test units.
+        :param is_reversed: Whether to use reversed multiplication for the test.
+        """
+        # Arrange.
+        # Create a fake unit to add.
+        add_to = unit_factory("Unit1", 1.0)
+
+        # Act.
+        if not is_reversed:
+            unit_sum = config.other_unit + add_to
+        else:
+            unit_sum = add_to + config.other_unit
+
+        # Assert.
+        # It should do the same thing either way because for addition,
+        # order doesn't matter.
+        config.mock_do_add.assert_called_once_with(config.other_unit,
+                                                   add_to)
+        assert unit_sum == config.mock_do_add.return_value
+
+    def test_sub(self, config: UnitConfig) -> None:
+        """
+        Tests that the subtraction operation works on this unit.
+        :param config: The configuration to use for testing.
+        """
+        # Arrange.
+        # Create a fake unit to subtract. We can't use the UnitFactory here,
+        # because it needs to support negation.
+        to_subtract = mock.MagicMock(spec=unit.Unit)
+
+        # Act.
+        diff = config.other_unit - to_subtract
+
+        # Assert.
+        # It should have negated the value.
+        to_subtract.__neg__.assert_called_once_with()
+        negated = to_subtract.__neg__.return_value
+
+        # It should have used do_add() on a negated value.
+        config.mock_do_add.asssert_called_once_with(config.other_unit, negated)
+        assert diff == config.mock_do_add.return_value
+
+    def test_sub_reversed(self, config: UnitConfig,
+                          unit_factory: UnitFactory) -> None:
+        """
+        Tests that the reversed subtraction operation works on this unit.
+        :param config: The configuration to use for testing.
+        :param unit_factory: The UnitFactory to use for creating test units.
+        """
+        # Arrange.
+        # Create a fake unit to subtract.
+        to_subtract = unit_factory("Unit1", 1.0)
+
+        # Mock the negation.
+        config.mock_type.side_effect = lambda x: MyUnit(config.mock_type, x)
+
+        # Act.
+        diff = to_subtract - config.other_unit
+
+        # Assert.
+        config.mock_do_add.asssert_called_once_with(-config.other_unit,
+                                                    to_subtract)
+        assert diff == config.mock_do_add.return_value

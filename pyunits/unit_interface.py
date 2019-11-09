@@ -13,6 +13,13 @@ class UnitInterface(abc.ABC):
     """
 
     @abc.abstractmethod
+    def __neg__(self) -> 'UnitInterface':
+        """
+        Negates this unit.
+        :return: The negation of the unit.
+        """
+
+    @abc.abstractmethod
     def __mul__(self, other: 'types.UnitValue') -> 'UnitInterface':
         """
         Multiplies this unit with another.
@@ -42,6 +49,38 @@ class UnitInterface(abc.ABC):
         Implements reversed division.
         :param other: The unit to divide.
         :return: The result of the division.
+        """
+
+    @abc.abstractmethod
+    def __add__(self, other: 'types.UnitValue') -> 'UnitInterface':
+        """
+        Implements normal addition.
+        :param other: The unit to add.
+        :return: The result of the addition.
+        """
+
+    @abc.abstractmethod
+    def __radd__(self, other: 'types.UnitValue') -> 'UnitInterface':
+        """
+        Implements reversed addition.
+        :param other: The unit to add.
+        :return: The result of the addition.
+        """
+
+    @abc.abstractmethod
+    def __sub__(self, other: 'types.UnitValue') -> 'UnitInterface':
+        """
+        Implements normal subtraction.
+        :param other: The unit to subtract.
+        :return: The result of the subtraction.
+        """
+
+    @abc.abstractmethod
+    def __rsub__(self, other: 'types.UnitValue') -> 'UnitInterface':
+        """
+        Implements reversed subtraction.
+        :param other: The unit to subtract.
+        :return: The result of the subtraction.
         """
 
     @classmethod

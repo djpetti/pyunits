@@ -22,11 +22,12 @@ class TestCompoundUnit:
         """
         Represents configuration for the tests.
         :param compound_unit: The CompoundUnit under test.
-        :param mock_unit_type: The mocked type of the MulUnit.
+        :param mock_unit_type: The mocked type of the CompoundUnit.
         :param mock_left_unit: The mocked left sub-unit.
         :param mock_right_unit: The mocked right sub-unit.
         :param mock_do_mul: The mocked do_mul() function.
         :param mock_do_div: The mocked do_div() function.
+        :param mock_do_add: The mocked do_add() function.
         """
         compound_unit: compound_unit.CompoundUnit
         mock_unit_type: mock.Mock
@@ -34,6 +35,7 @@ class TestCompoundUnit:
         mock_right_unit: mock.Mock
         mock_do_mul: mock.Mock
         mock_do_div: mock.Mock
+        mock_do_add: mock.Mock
 
     class ClassSpecificConfig(NamedTuple):
         """
@@ -86,13 +88,16 @@ class TestCompoundUnit:
         with mock.patch(compound_unit.__name__ + ".do_mul") as \
                 mock_do_mul, \
                 mock.patch(compound_unit.__name__ + ".do_div") as \
-                mock_do_div:
+                mock_do_div, \
+                mock.patch(compound_unit.__name__ + ".do_add") as \
+                mock_do_add:
             yield cls.UnitConfig(compound_unit=my_compound_unit,
                                  mock_unit_type=mock_unit_type,
                                  mock_left_unit=mock_left_unit,
                                  mock_right_unit=mock_right_unit,
                                  mock_do_mul=mock_do_mul,
-                                 mock_do_div=mock_do_div)
+                                 mock_do_div=mock_do_div,
+                                 mock_do_add=mock_do_add)
 
             # Finalization done upon exit from context manager.
 
@@ -258,3 +263,30 @@ class TestCompoundUnit:
         config.mock_do_div.assert_called_once_with(mock.ANY,
                                                    *do_div_args)
         assert quotient == config.mock_do_div.return_value
+
+    @pytest.mark.parametrize("is_reversed", [False, True],
+                             ids=["normal", "reversed"])
+    def test_add(self, config: UnitConfig, unit_factory: UnitFactory,
+                 is_reversed: bool) -> None:
+        """
+        Tests that we can add the unit to another.
+        :param config: The configuration to use for testing.
+        :param unit_factory: The UnitFactory to use for creating test units.
+        :param is_reversed: Whether to use reversed multiplication for the test.
+        """
+        # Arrange.
+        # Create a fake unit to add.
+        add_to = mock.Mock(spec=compound_unit.CompoundUnit)
+
+        # Act.
+        if not is_reversed:
+            unit_sum = config.compound_unit + add_to
+        else:
+            unit_sum = add_to + config.compound_unit
+
+        # Assert.
+        # It should do the same thing either way because for addition,
+        # order doesn't matter.
+        config.mock_do_add.assert_called_once_with(config.compound_unit,
+                                                   add_to)
+        assert unit_sum == config.mock_do_add.return_value

@@ -55,3 +55,26 @@ def do_div(compound_type_factories: CompoundTypeFactories,
                                                        right.type)
         div_unit = div_unit_factory.apply_to(left, right)
         return unit_analysis.simplify(div_unit, compound_type_factories)
+
+
+@WrapNumeric("left", "right")
+def do_add(left: UnitInterface, right: UnitInterface) -> UnitInterface:
+    """
+    Helper that implements the addition operation.
+    :param left: The left unit to add.
+    :param right: The right unit to add.
+    :return: The addition of the two units.
+    """
+    if left.type.is_compatible(Unitless):
+        # Normally, we enforce compatibility, but we make an exception when
+        # adding Unitless values, which we simply treat as raw numbers.
+        left = right.type(left.raw)
+    elif right.type.is_compatible(Unitless):
+        right = left.type(left.raw)
+
+    # If they are compatible, we can just add their raw values, after
+    # converting to ensure that they have the same units. (If they're not
+    # compatible, this will trigger an exception, which is precisely the
+    # behavior we want.)
+    right = left.type(right)
+    return left.type(left.raw + right.raw)

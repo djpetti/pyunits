@@ -4,7 +4,7 @@ import numpy as np
 
 from .compound_units import Div, Mul
 from .exceptions import UnitError
-from .mul_div_helpers import do_mul, do_div
+from .arithmetic_helpers import do_mul, do_div, do_add
 from .types import CompoundTypeFactories, UnitValue
 from .unit_base import UnitBase
 from .unit_interface import UnitInterface
@@ -51,6 +51,9 @@ class Unit(UnitBase, abc.ABC):
 
     def __rtruediv__(self, other: UnitValue) -> UnitInterface:
         return do_div(self.COMPOUND_TYPE_FACTORIES, other, self)
+
+    def __add__(self, other: UnitValue) -> UnitInterface:
+        return do_add(self, other)
 
     def _set_raw(self, raw: np.ndarray) -> None:
         """

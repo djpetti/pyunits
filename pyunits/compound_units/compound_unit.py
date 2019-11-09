@@ -2,7 +2,7 @@ from typing import cast
 import abc
 import functools
 
-from ..mul_div_helpers import do_mul, do_div
+from ..arithmetic_helpers import do_mul, do_div, do_add
 from ..types import CompoundTypeFactories, UnitValue
 from ..unit_base import UnitBase
 from ..unit_interface import UnitInterface
@@ -45,6 +45,9 @@ class CompoundUnit(UnitBase, abc.ABC):
 
     def __rtruediv__(self, other: UnitValue) -> UnitInterface:
         return do_div(self.__get_type_factories(), other, self)
+
+    def __add__(self, other: UnitValue) -> UnitInterface:
+        return do_add(self, other)
 
     def is_standard(self) -> bool:
         """

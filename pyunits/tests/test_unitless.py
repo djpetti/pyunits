@@ -221,3 +221,46 @@ class TestUnitless:
         # Act and assert.
         with pytest.raises(NotImplementedError, match="not ever need"):
             unitless.cast_to(mock.Mock(spec=UnitType))
+
+    def test_add_numeric(self, unitless: Unitless) -> None:
+        """
+        Tests that we can add a raw numeric value to a Unitless value.
+        :param unitless: The Unitless value to try adding.
+        """
+        # Arrange done in fixtures.
+        # Act.
+        unit_sum = unitless + 2.0
+
+        # Assert.
+        # It should have updated the raw value.
+        assert unit_sum.raw == pytest.approx(self._UNITLESS_VALUE + 2.0)
+
+    def test_add_unitless(self, unitless: Unitless) -> None:
+        """
+        Tests that we can add a Unitless value to another one.
+        :param unitless: The Unitless value to try adding.
+        """
+        # Arrange.
+        # Create another Unitless value to add.
+        add_to = Unitless(2.0)
+
+        # Act.
+        unit_sum = unitless + add_to
+
+        # Assert.
+        # It should have updated the raw value.
+        assert unit_sum.raw == pytest.approx(self._UNITLESS_VALUE + 2.0)
+
+    def test_add_unit(self, unitless: Unitless,
+                      mock_unit: mock.Mock) -> None:
+        """
+        Tests that we can add a Unitless value to another Unit.
+        :param unitless: The Unitless value to try adding.
+        :param mock_unit: The fake Unit to add to.
+        """
+        # Arrange done in fixtures.
+        # Act and assert.
+        with pytest.raises(NotImplementedError):
+            # The fancy lambda-ing is so we don't get warnings about unused
+            # variables and such.
+            (lambda: unitless + mock_unit)()

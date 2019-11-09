@@ -3,9 +3,10 @@ import unittest.mock as mock
 
 import pytest
 
-from pyunits import mul_div_helpers
+from pyunits import arithmetic_helpers
 from pyunits.tests.testing_types import UnitFactory
 from pyunits.types import CompoundTypeFactories
+from pyunits.unitless import Unitless
 
 
 class Config(NamedTuple):
@@ -40,11 +41,11 @@ def config(unit_factory: UnitFactory) -> Config:
     mock_left_unit = unit_factory("LeftUnit", 1.0)
     mock_right_unit = unit_factory("RightUnit", 2.0)
 
-    with mock.patch(mul_div_helpers.__name__ + ".unit_analysis.simplify"
+    with mock.patch(arithmetic_helpers.__name__ + ".unit_analysis.simplify"
                     ) as mock_simplify, \
-            mock.patch(mul_div_helpers.__name__ + ".WrapNumeric"
+            mock.patch(arithmetic_helpers.__name__ + ".WrapNumeric"
                        ) as mock_wrap_numeric, \
-            mock.patch(mul_div_helpers.__name__ + ".Unitless"
+            mock.patch(arithmetic_helpers.__name__ + ".Unitless"
                        ) as mock_unitless:
         # Make WrapNumeric into a transparent pass-through.
         mock_wrap_numeric.side_effect = lambda x: x
@@ -73,8 +74,8 @@ def test_do_mul(config: Config, compatible: bool) -> None:
     config.right_unit.type.is_compatible.return_value = compatible
 
     #  Act.
-    product = mul_div_helpers.do_mul(config.compound_type_factories,
-                                     config.left_unit, config.right_unit)
+    product = arithmetic_helpers.do_mul(config.compound_type_factories,
+                                        config.left_unit, config.right_unit)
 
     # Assert.
     # It should have checked compatibility.
@@ -115,8 +116,8 @@ def test_do_div_compatible(config: Config) -> None:
     type(converted_right).raw = mock.PropertyMock(return_value=1.0)
 
     # Act.
-    quotient = mul_div_helpers.do_div(config.compound_type_factories,
-                                      config.left_unit, config.right_unit)
+    quotient = arithmetic_helpers.do_div(config.compound_type_factories,
+                                         config.left_unit, config.right_unit)
 
     # Assert.
     # It should have checked compatibility.
@@ -144,8 +145,8 @@ def test_do_div_incompatible(config: Config) -> None:
     config.right_unit.type.is_compatible.return_value = False
 
     # Act.
-    quotient = mul_div_helpers.do_div(config.compound_type_factories,
-                                      config.left_unit, config.right_unit)
+    quotient = arithmetic_helpers.do_div(config.compound_type_factories,
+                                         config.left_unit, config.right_unit)
 
     # Assert.
     # It should have checked compatibility.
@@ -164,3 +165,59 @@ def test_do_div_incompatible(config: Config) -> None:
     config.mock_simplify.assert_called_once_with(div_unit,
                                                  config.compound_type_factories)
     assert quotient == config.mock_simplify.return_value
+
+
+@pytest.mark.parametrize("left_unitless", [False, True],
+                         ids=["left_not_unitless", "left_unitless"])
+@pytest.mark.parametrize("right_unitless", [False, True],
+                         ids=["right_not_unitless", "right_unitless"])
+def test_do_add(config: Config, left_unitless: bool, right_unitless: bool
+                ) -> None:
+    """
+    Tests that do_add() works.
+    :param config: The configuration to use for testing.
+    :param left_unitless: Whether the left value should be unitless.
+    :param right_unitless: Whether the right value should be unitless.
+    """
+    # Arrange.
+    # Correctly set which parameters are unitless.
+    config.left_unit.type.is_compatible.return_value = left_unitless
+    config.right_unit.type.is_compatible.return_value = right_unitless
+
+    # Set the correct raw value for the converted units.
+    left_not_unitless = config.left_unit
+    right_not_unitless = config.right_unit
+    if left_unitless:
+        left_not_unitless = config.right_unit.type.return_value
+        type(left_not_unitless).raw = mock.PropertyMock(
+            return_value=config.left_unit.raw)
+
+    # It will convert a maximum of one of them, hence the logic here.
+    elif right_unitless:
+        right_not_unitless = config.left_unit.type.return_value
+        type(right_not_unitless).raw = mock.PropertyMock(
+            return_value=config.right_unit.raw)
+
+    # We will do an additional conversion to force both operands to the same
+    # units. Correctly set the raw value for this.
+    converted_right = left_not_unitless.type.return_value
+    type(converted_right).raw = mock.PropertyMock(
+        return_value=left_not_unitless.raw)
+
+    # Act.
+    unit_sum = arithmetic_helpers.do_add(config.left_unit, config.right_unit)
+
+    # Assert.
+    if left_unitless:
+        # It should have converted the left unit.
+        config.right_unit.type.assert_any_call(config.left_unit.raw)
+    elif right_unitless:
+        # It should have converted the right unit.
+        config.left_unit.type.assert_any_call(config.right_unit.raw)
+
+    # It should have done the addition.
+    left_not_unitless.type.assert_any_call(right_not_unitless)
+    right_not_unitless = left_not_unitless.type.return_value
+    left_not_unitless.type.assert_any_call(left_not_unitless.raw +
+                                           right_not_unitless.raw)
+    assert unit_sum == left_not_unitless.type.return_value
