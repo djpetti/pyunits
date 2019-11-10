@@ -57,12 +57,14 @@ class TestUnit:
         # Replace the compound type factories with mocks.
         mock_mul = mock.Mock()
         mock_div = mock.Mock()
-        unit.Unit.COMPOUND_TYPE_FACTORIES = CompoundTypeFactories(mul=mock_mul,
-                                                                  div=mock_div)
+        mocked_type_factories = CompoundTypeFactories(mul=mock_mul,
+                                                      div=mock_div)
 
         with mock.patch(unit.__name__ + ".do_mul") as mock_do_mul, \
                 mock.patch(unit.__name__ + ".do_div") as mock_do_div, \
-                mock.patch(unit.__name__ + ".do_add") as mock_do_add:
+                mock.patch(unit.__name__ + ".do_add") as mock_do_add, \
+                mock.patch.object(unit.Unit, "COMPOUND_TYPE_FACTORIES",
+                                  new=mocked_type_factories):
             yield cls.UnitConfig(other_unit=my_unit,
                                  standard_unit=standard_unit,
                                  mock_type=unit_type,

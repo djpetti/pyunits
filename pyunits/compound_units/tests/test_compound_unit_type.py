@@ -87,22 +87,26 @@ class TestCompoundUnitType:
         # Stub out the CompoundUnit constructors.
         mock_mul_unit = mock.Mock()
         mock_div_unit = mock.Mock()
-        compound_unit_type.CompoundUnitType.OPERATION_TO_CLASS = \
-            {Operation.MUL: mock_mul_unit, Operation.DIV: mock_div_unit}
+        mock_operation_to_class = {Operation.MUL: mock_mul_unit,
+                                   Operation.DIV: mock_div_unit}
+        mock_compound_unit = mock_operation_to_class[operation]
 
         # Ensure that it creates a new unit every time.
         compound_unit_type.CompoundUnitType.clear_interning_cache()
 
-        # Create the compound type to test with.
-        compound_type = compound_unit_type.CompoundUnitType\
-            .get(operation, left_sub_type, right_sub_type)
+        with mock.patch.object(compound_unit_type.CompoundUnitType,
+                               "OPERATION_TO_CLASS",
+                               new=mock_operation_to_class):
+            # Create the compound type to test with.
+            compound_type = compound_unit_type.CompoundUnitType \
+                .get(operation, left_sub_type, right_sub_type)
 
-        mock_compound_unit = \
-            compound_unit_type.CompoundUnitType.OPERATION_TO_CLASS[operation]
-        return cls.UnitConfig(compound_type=compound_type,
-                              mock_left_sub_type=left_sub_type,
-                              mock_right_sub_type=right_sub_type,
-                              mock_compound_unit=mock_compound_unit)
+            yield cls.UnitConfig(compound_type=compound_type,
+                                 mock_left_sub_type=left_sub_type,
+                                 mock_right_sub_type=right_sub_type,
+                                 mock_compound_unit=mock_compound_unit)
+
+            # Finalization done implicitly upon exit from context manager.
 
     def test_left_right(self, config: UnitConfig) -> None:
         """
