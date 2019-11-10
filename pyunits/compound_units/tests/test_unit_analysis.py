@@ -44,7 +44,7 @@ class TestUnitAnalysis:
     # Number of flatten() test cases we have.
     _NUM_FLATTEN_TESTS = 7
     # Number of simplify() test cases we have for UnitTypes.
-    _NUM_SIMPLIFY_TYPE_TESTS = 16
+    _NUM_SIMPLIFY_TYPE_TESTS = 17
     # Number of simplify() test cases we have for units.
     _NUM_SIMPLIFY_UNIT_TESTS = 6
     # Number of un_flatten() test cases we have.
@@ -410,6 +410,10 @@ class TestUnitAnalysis:
            simplify_test(to_simplify=real_div(real_mul(type1, type2),
                                               real_mul(type1_other, type2)),
                          simplified=unitless_type_factory()),
+           simplify_test(to_simplify=real_div(real_mul(type1,
+                                                       real_mul(type1, type1)),
+                                              real_mul(type1, type1)),
+                         simplified=type1)
         ]
 
         assert len(simplify_tests) == cls._NUM_SIMPLIFY_TYPE_TESTS

@@ -4,6 +4,8 @@ import numpy as np
 
 import pytest
 
+from pyunits.exceptions import UnitError
+from pyunits.types import RequestType
 from pyunits.unitless import Unitless, UnitlessType
 from pyunits.unit_interface import UnitInterface
 from pyunits.unit_type import UnitType
@@ -20,13 +22,15 @@ class TestUnitless:
     _MOCK_UNIT_VALUE = np.array([2, 2, 2])
 
     @classmethod
-    @pytest.fixture
-    def unitless(cls) -> Unitless:
+    @pytest.fixture(params=[_UNITLESS_VALUE, Unitless(_UNITLESS_VALUE)],
+                    ids=["init_raw_numeric", "init_unitless"])
+    def unitless(cls, request: RequestType) -> Unitless:
         """
         Creates a new Unitless instance.
+        :param request: The PyTest Request object to use for parametrization.
         :return: The Unitless instance that it created.
         """
-        return Unitless(cls._UNITLESS_VALUE)
+        return Unitless(request.param)
 
     @classmethod
     @pytest.fixture
@@ -42,6 +46,19 @@ class TestUnitless:
         type(mock_unit).raw = mock_raw
 
         return mock_unit
+
+    def test_init_other_unit(self, mock_unit: mock.Mock) -> None:
+        """
+        Tests that Unitless refuses to convert implicitly from another Unit.
+        :param mock_unit: The Unit to try to convert from.
+        """
+        # Arrange.
+        # Make it look like it is not another Unitless value.
+        mock_unit.type.is_compatible.return_value = False
+
+        # Act and assert.
+        with pytest.raises(UnitError, match="explicitly take"):
+            Unitless(mock_unit)
 
     def test_mul_numeric(self, unitless: Unitless) -> None:
         """

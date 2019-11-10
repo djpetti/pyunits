@@ -60,7 +60,7 @@ class TestUnitType:
 
         # Assert.
         # It should have set the standard unit.
-        assert MyType.standard_unit_class() == wrapped
+        assert wrapped.standard_unit_class() == wrapped
 
     def test_wrapping_standard_twice(self) -> None:
         """
@@ -135,9 +135,12 @@ class TestUnitType:
         # Make it look like we have no standard unit for this type.
         MyType._STANDARD_UNIT_CLASS = None
 
+        # Create a new instance.
+        my_type = MyType.decorate(MyUnit)
+
         # Act and assert.
         with pytest.raises(UnitError, match="no standard"):
-            MyType.standard_unit_class()
+            my_type.standard_unit_class()
 
     def test_is_compatible(self, wrapped_unit: MyType) -> None:
         """

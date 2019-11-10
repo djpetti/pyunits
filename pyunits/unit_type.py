@@ -122,17 +122,16 @@ class UnitType(Interned):
         handler = cls._DIRECT_CASTS[cast]
         return handler(unit)
 
-    @classmethod
-    def standard_unit_class(cls) -> 'UnitType':
+    def standard_unit_class(self) -> 'UnitType':
         """
         :return: The standard unit class for this UnitType.
         """
-        if cls._STANDARD_UNIT_CLASS is None:
+        if self._STANDARD_UNIT_CLASS is None:
             # We never set one.
             raise UnitError("UnitType {} has no standard unit."
-                            .format(cls.__name__))
+                            .format(self.__class__.__name__))
 
-        return cls._STANDARD_UNIT_CLASS
+        return self._STANDARD_UNIT_CLASS
 
     def is_compatible(self, other: "UnitType") -> bool:
         """

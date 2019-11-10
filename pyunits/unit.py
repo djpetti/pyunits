@@ -63,7 +63,7 @@ class Unit(UnitBase, abc.ABC):
         self.__value = raw
 
     @abc.abstractmethod
-    def _from_standard(self, standard_value: UnitInterface) -> None:
+    def _from_standard(self, standard_value: 'StandardUnit') -> None:
         """
         Initializes this unit from a different unit with a "standard" value.
         :param standard_value: The standard unit to initialize from.

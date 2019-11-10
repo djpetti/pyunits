@@ -7,6 +7,7 @@ from ..types import CompoundTypeFactories, UnitValue
 from ..unit_base import UnitBase
 from ..unit_interface import UnitInterface
 from .operations import Operation
+from .unit_analysis import simplify
 from . import compound_unit_type
 
 
@@ -65,8 +66,14 @@ class CompoundUnit(UnitBase, abc.ABC):
         standard_right = self.__right_unit.to_standard()
 
         # Create a new compound unit with the standard unit values.
-        compound_type = cast(compound_unit_type.CompoundUnitType, self.type)
-        return compound_type.apply_to(standard_left, standard_right)
+        standard_compound_type = self.type.standard_unit_class()
+        standard_compound_type = cast('compound_unit_type.CompoundUnitType',
+                                      standard_compound_type)
+        standard = standard_compound_type.apply_to(standard_left,
+                                                   standard_right)
+
+        # This might call for simplification.
+        return simplify(standard, self.__get_type_factories())
 
     def cast_to(self, out_type: "compound_unit_type.CompoundUnitType"
                 ) -> "CompoundUnit":

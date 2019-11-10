@@ -353,12 +353,14 @@ def simplify_type(to_simplify: UnitType,
     # Remove all the redundant stuff now.
     for unit_type in redundant_types:
         # Decrease the powers.
-        denominator[unit_type] -= 1
+        decrease_by = min(numerator[unit_type], denominator[unit_type])
+
+        denominator[unit_type] -= decrease_by
         if denominator[unit_type] == 0:
             # Remove zero powers completely.
             denominator.pop(unit_type)
 
-        numerator[unit_type] -= 1
+        numerator[unit_type] -= decrease_by
         if numerator[unit_type] == 0:
             numerator.pop(unit_type)
 

@@ -9,21 +9,24 @@ class Length(UnitType):
     """
     Type for length units.
     """
-    pass
 
 
 class Length2D(UnitType):
     """
     Type for 2D length units.
     """
-    pass
 
 
 class Time(UnitType):
     """
     Type for time units.
     """
-    pass
+
+
+class Energy(UnitType):
+    """
+    Type for energy units.
+    """
 
 
 @Length.decorate
@@ -46,14 +49,14 @@ class Centimeters(Unit):
     A centimeters unit.
     """
 
-    def _from_standard(self, standard_value: "Unit") -> None:
+    def _from_standard(self, standard_value: StandardUnit) -> None:
         """
         See superclass for documentation.
         """
         # Convert from meters.
         self._set_raw(standard_value.raw * 100)
 
-    def to_standard(self) -> Unit:
+    def to_standard(self) -> Meters:
         """
         See superclass for documentation.
         """
@@ -66,6 +69,104 @@ class Centimeters(Unit):
         See superclass for documentation.
         """
         return "cm"
+
+
+@Length.decorate
+class Kilometers(Unit):
+    """
+    A kilometers unit.
+    """
+
+    def _from_standard(self, standard_value: StandardUnit) -> None:
+        """
+        See superclass for documentation.
+        """
+        # Convert from meters.
+        self._set_raw(standard_value.raw / 1000)
+
+    def to_standard(self) -> Meters:
+        """
+        See superclass for documentation.
+        """
+        # Convert to meters.
+        return Meters(self.raw * 1000)
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "km"
+
+
+@Length.decorate
+class Inches(Unit):
+    """
+    An inches unit.
+    """
+
+    def _from_standard(self, standard_value: StandardUnit) -> None:
+        """
+        See superclass for documentation.
+        """
+        # Convert from meters.
+        self._set_raw(standard_value.raw / 0.0254)
+
+    def to_standard(self) -> Meters:
+        """
+        See superclass for documentation.
+        """
+        # Convert to meters.
+        return Meters(self.raw * 0.0254)
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "in"
+
+
+@Length.decorate
+class Miles(Unit):
+    """
+    A miles unit.
+    """
+
+    def _from_standard(self, standard_value: StandardUnit) -> None:
+        """
+        See superclass for documentation.
+        """
+        # Convert from meters.
+        self._set_raw(standard_value.raw * 0.000621371)
+
+    def to_standard(self) -> Meters:
+        """
+        See superclass for documentation.
+        """
+        # Convert to meters.
+        return Meters(self.raw / 0.000621371)
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "mi"
+
+
+@Length2D.decorate
+class Meters2D(StandardUnit):
+    """
+    A unit for a 2D position in meters.
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "m"
 
 
 @Time.decorate
@@ -82,10 +183,10 @@ class Seconds(StandardUnit):
         return "s"
 
 
-@Length2D.decorate
-class Meters2D(StandardUnit):
+@Energy.decorate
+class Joules(StandardUnit):
     """
-    A unit for a 2D position in meters.
+    A Joules unit.
     """
 
     @property
@@ -93,7 +194,7 @@ class Meters2D(StandardUnit):
         """
         See superclass for documentation.
         """
-        return "m"
+        return "J"
 
 
 @CastHandler(Meters, Meters2D)

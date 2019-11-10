@@ -114,7 +114,7 @@ class CompoundUnitType(UnitType):
     def apply_to(self, left_unit: UnitInterface,
                  right_unit: UnitInterface) -> CompoundUnit:
         """
-        Applies the multiplication to two units.
+        Applies the compound operation to two units.
         :param left_unit: The first unit to multiply.
         :param right_unit: The second unit to multiply.
         :return: A Unit representing the multiplication of the two.
@@ -153,6 +153,18 @@ class CompoundUnitType(UnitType):
 
             compound_unit = super().__call__(left_unit, right_unit)
             return cast(CompoundUnit, compound_unit)
+
+    def standard_unit_class(self) -> 'CompoundUnitType':
+        """
+        See superclass for documentation.
+        """
+        # Find the standard unit classes for the sub-types.
+        left_standard_class = self.left.standard_unit_class()
+        right_standard_class = self.right.standard_unit_class()
+
+        # Create a new compound type with these.
+        return self.get(self.operation, left_standard_class,
+                        right_standard_class)
 
     def is_compatible(self, other: UnitType) -> bool:
         """

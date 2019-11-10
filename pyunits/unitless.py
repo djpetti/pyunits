@@ -1,5 +1,8 @@
+from typing import Union
+
 import numpy as np
 
+from .exceptions import UnitError
 from .types import Numeric, UnitValue
 from .unit_base import UnitBase
 from .unit_interface import UnitInterface
@@ -33,13 +36,26 @@ class Unitless(UnitBase):
     to do anything with them.
     """
 
-    def __init__(self, unit_type: UnitlessType, value: Numeric):
+    def __init__(self, unit_type: UnitlessType,
+                 value: Union[Numeric, 'Unitless']):
         """
         :param unit_type: The UnitlessType instance used to create this class.
         :param value: The unitless value to wrap.
         """
         super().__init__(unit_type)
-        self.__value = np.asarray(value)
+
+        if isinstance(value, UnitInterface):
+            if not value.type.is_compatible(self.type):
+                # Implicit initialization from normal units are disallowed,
+                # because my judgement is that this has too high of a propensity
+                # for causing bugs.
+                raise UnitError("To initialize a Unitless value from another "
+                                "unit, you must explicitly take the raw value.")
+
+            self.__value = value.raw
+        else:
+            # Numeric type.
+            self.__value = np.asarray(value)
 
     def __mul__(self, other: UnitValue) -> UnitInterface:
         """

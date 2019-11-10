@@ -10,6 +10,7 @@ from pyunits.compound_units.compound_unit import CompoundUnit
 from pyunits.compound_units.operations import Operation
 from pyunits.compound_units import compound_unit_type
 from pyunits.exceptions import UnitError
+from pyunits.tests.testing_types import UnitTypeFactory
 from pyunits.types import RequestType, UnitValue
 from pyunits.unit_interface import UnitInterface
 from pyunits.unit_type import UnitType
@@ -230,6 +231,41 @@ class TestCompoundUnitType:
         # Act and assert.
         with pytest.raises(UnitError):
             config.compound_type(template_unit)
+
+    def test_standard_unit_class(self, config: UnitConfig,
+                                 unit_type_factory: UnitTypeFactory) -> None:
+        """
+        Tests that standard_unit_class() works.
+        :param config: The configuration to use.
+        :param unit_type_factory: The factory to use for creating new UnitTypes.
+        """
+        # Arrange.
+        # Make it look like we have valid standard classes for both our
+        # subtypes.
+        mock_standard_left = unit_type_factory("StandardLeftType")
+        mock_standard_right = unit_type_factory("StandardRightType")
+        config.mock_left_sub_type.standard_unit_class.return_value = \
+            mock_standard_left
+        config.mock_right_sub_type.standard_unit_class.return_value = \
+            mock_standard_right
+
+        # Make it look like they're incompatible so that the CompoundUnitType
+        # constructor doesn't complain.
+        mock_standard_left.is_compatible.return_value = False
+        mock_standard_right.is_compatible.return_value = False
+
+        # Act.
+        got_standard = config.compound_type.standard_unit_class()
+
+        # Assert.
+        # It should have standardized the sub-types.
+        config.mock_left_sub_type.standard_unit_class.assert_called_once_with()
+        config.mock_right_sub_type.standard_unit_class.assert_called_once_with()
+
+        # It should have created the new CompoundUnitType.
+        assert got_standard.left == mock_standard_left
+        assert got_standard.right == mock_standard_right
+        assert got_standard.operation == config.compound_type.operation
 
     @pytest.mark.parametrize("reverse_sub_units", [False, True])
     def test_is_compatible_subunits(self, config: UnitConfig,

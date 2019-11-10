@@ -28,6 +28,7 @@ class TestCompoundUnit:
         :param mock_do_mul: The mocked do_mul() function.
         :param mock_do_div: The mocked do_div() function.
         :param mock_do_add: The mocked do_add() function.
+        :param mock_simplify: The mocked simplify() function.
         """
         compound_unit: compound_unit.CompoundUnit
         mock_unit_type: mock.Mock
@@ -36,6 +37,7 @@ class TestCompoundUnit:
         mock_do_mul: mock.Mock
         mock_do_div: mock.Mock
         mock_do_add: mock.Mock
+        mock_simplify: mock.Mock
 
     class ClassSpecificConfig(NamedTuple):
         """
@@ -90,14 +92,17 @@ class TestCompoundUnit:
                 mock.patch(compound_unit.__name__ + ".do_div") as \
                 mock_do_div, \
                 mock.patch(compound_unit.__name__ + ".do_add") as \
-                mock_do_add:
+                mock_do_add, \
+                mock.patch(compound_unit.__name__ + ".simplify") as \
+                mock_simplify:
             yield cls.UnitConfig(compound_unit=my_compound_unit,
                                  mock_unit_type=mock_unit_type,
                                  mock_left_unit=mock_left_unit,
                                  mock_right_unit=mock_right_unit,
                                  mock_do_mul=mock_do_mul,
                                  mock_do_div=mock_do_div,
-                                 mock_do_add=mock_do_add)
+                                 mock_do_add=mock_do_add,
+                                 mock_simplify=mock_simplify)
 
             # Finalization done upon exit from context manager.
 
@@ -139,15 +144,23 @@ class TestCompoundUnit:
         config.mock_left_unit.to_standard.assert_called_once_with()
         config.mock_right_unit.to_standard.assert_called_once_with()
 
+        # It should have gotten the standard type.
+        config.mock_unit_type.standard_unit_class.assert_called_once_with()
+        standard_type = config.mock_unit_type.standard_unit_class.return_value
+
         # It should have re-applied the compound unit to the standardized
         # sub-units.
         standard_left = config.mock_left_unit.to_standard.return_value
         standard_right = config.mock_right_unit.to_standard.return_value
-        config.mock_unit_type.apply_to.assert_called_once_with(standard_left,
-                                                               standard_right)
+        standard_type.apply_to.assert_called_once_with(standard_left,
+                                                       standard_right)
+        standard_applied = standard_type.apply_to.return_value
 
-        # It should have returned the new DivUnit.
-        assert standard_unit == config.mock_unit_type.apply_to.return_value
+        # It should have simplified the result.
+        config.mock_simplify.assert_called_once_with(standard_applied, mock.ANY)
+
+        # It should have returned the simplified CompoundUnit.
+        assert standard_unit == config.mock_simplify.return_value
 
     def test_cast_to(self, config: UnitConfig) -> None:
         """
