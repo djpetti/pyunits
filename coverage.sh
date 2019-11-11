@@ -2,6 +2,6 @@
 # Run in the venv to we have the coverage tool.
 source venv/bin/activate
 
-pytest --cov=.
+pytest --cov=. "$@"
 # Generate HTML report.
 coverage html

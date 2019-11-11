@@ -44,9 +44,9 @@ class TestUnitAnalysis:
     # Number of flatten() test cases we have.
     _NUM_FLATTEN_TESTS = 7
     # Number of simplify() test cases we have for UnitTypes.
-    _NUM_SIMPLIFY_TYPE_TESTS = 17
+    _NUM_SIMPLIFY_TYPE_TESTS = 18
     # Number of simplify() test cases we have for units.
-    _NUM_SIMPLIFY_UNIT_TESTS = 6
+    _NUM_SIMPLIFY_UNIT_TESTS = 7
     # Number of un_flatten() test cases we have.
     _NUM_UN_FLATTEN_TESTS = 8
 
@@ -413,7 +413,11 @@ class TestUnitAnalysis:
            simplify_test(to_simplify=real_div(real_mul(type1,
                                                        real_mul(type1, type1)),
                                               real_mul(type1, type1)),
-                         simplified=type1)
+                         simplified=type1),
+           simplify_test(to_simplify=real_div(type1,
+                                              real_mul(type1_other, type2)),
+                         simplified=fake_div(unitless_type_factory(),
+                                             type2))
         ]
 
         assert len(simplify_tests) == cls._NUM_SIMPLIFY_TYPE_TESTS
@@ -442,8 +446,10 @@ class TestUnitAnalysis:
 
         # Create two units of the same type.
         type1 = unit_type_factory("UnitType1")
-        unit1_of_type1 = unit_factory("Type1Unit1", raw=5.0, unit_type=type1)
-        unit2_of_type1 = unit_factory("Type1Unit2", raw=7.0, unit_type=type1)
+        unit1_of_type1 = unit_factory("Type1Unit1", raw=5.0,
+                                      unit_type_class=type1)
+        unit2_of_type1 = unit_factory("Type1Unit2", raw=7.0,
+                                      unit_type_class=type1)
 
         # Mock the standard values of these units, since they'll be used.
         unit1_of_type1.to_standard.return_value = unit_factory(
@@ -486,7 +492,12 @@ class TestUnitAnalysis:
                                                               unit1_of_type1),
                                                   div_factory(unit2_of_type1,
                                                               unit2)),
-                          expected_raw=(1.0 / 3.0))
+                          expected_raw=(1.0 / 3.0)),
+            # When we have multiple units of the same class. (It should not
+            # standardize.)
+            simplify_test(to_simplify=mul_factory(unit1_of_type1,
+                                                  unit1_of_type1),
+                          expected_raw=25.0)
         ]
 
         assert len(simplify_tests) == cls._NUM_SIMPLIFY_UNIT_TESTS

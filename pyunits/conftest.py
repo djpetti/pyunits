@@ -25,11 +25,12 @@ def unit_factory(unit_type_factory: UnitTypeFactory) -> UnitFactory:
     names_to_subclasses = {}
 
     def _unit_factory_impl(class_name: str, raw: Numeric = 0.0,
-                           unit_type: Optional[UnitType] = None) -> mock.Mock:
+                           unit_type_class: Optional[UnitType] = None
+                           ) -> mock.Mock:
         """
         :param class_name: The name of the fake Unit subclass.
         :param raw: Optional raw numeric value to give the unit.
-        :param unit_type: Optional specification of UnitType for created
+        :param unit_type_class: Optional specification of UnitType for created
         unit.
         """
         subclass = names_to_subclasses.get(class_name)
@@ -41,13 +42,18 @@ def unit_factory(unit_type_factory: UnitTypeFactory) -> UnitFactory:
         mock_unit = mock.Mock(spec=subclass)
 
         # Make sure the type is appropriate.
-        if unit_type is None:
-            unit_type = unit_type_factory(f"{class_name}_UnitType")
+        # To model the behavior of a real unit, if we specify the same type for
+        # two units, they should have the same .type_class properties, but their
+        # .type properties should be different instances.
+        if unit_type_class is None:
+            unit_type_class = unit_type_factory(f"{class_name}_UnitType")
+        unit_type = unit_type_factory(f"{class_name}_UnitType_Instance")
+        mock_type_class_property = mock.PropertyMock(
+            return_value=unit_type_class)
         mock_type_property = mock.PropertyMock(return_value=unit_type)
+
         type(mock_unit).type = mock_type_property
-        # The spec should work reasonably for instances as well as the class
-        # itself.
-        type(mock_unit).type_class = mock_type_property
+        type(mock_unit).type_class = mock_type_class_property
 
         # Set the raw value.
         raw = np.asarray(raw)

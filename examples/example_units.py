@@ -183,6 +183,62 @@ class Seconds(StandardUnit):
         return "s"
 
 
+@Time.decorate
+class Minutes(Unit):
+    """
+    A minutes unit.
+    """
+
+    def _from_standard(self, standard_value: StandardUnit) -> None:
+        """
+        See superclass for documentation.
+        """
+        # Convert from seconds.
+        self._set_raw(standard_value.raw / 60)
+
+    def to_standard(self) -> Seconds:
+        """
+        See superclass for documentation.
+        """
+        # Convert to seconds.
+        return Seconds(self.raw * 60)
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "min"
+
+
+@Time.decorate
+class Years(Unit):
+    """
+    A years unit.
+    """
+
+    def _from_standard(self, standard_value: StandardUnit) -> None:
+        """
+        See superclass for documentation.
+        """
+        # Convert from seconds.
+        self._set_raw(standard_value.raw / 31536000)
+
+    def to_standard(self) -> Seconds:
+        """
+        See superclass for documentation.
+        """
+        # Convert to seconds.
+        return Seconds(self.raw * 31536000)
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "yr"
+
+
 @Energy.decorate
 class Joules(StandardUnit):
     """

@@ -102,12 +102,11 @@ def _canonicalize_types(products: Iterable[Dict[UnitType, int]]
     # Maps a UnitType class to the canonical instance of that class.
     type_class_to_instance = {}
 
-    def _canonicalize_one(product: Dict[UnitType, int]
-                          ) -> Tuple[bool, Dict[UnitType, int]]:
+    def _collect_canonical(product: Dict[UnitType, int]) -> bool:
         """
         Helper function that canonicalizes a single product dict.
         :param product: The product to canonicalize.
-        :return: Whether the input was changed, and the canonicalized product.
+        :return: True if the input is not already canonical, false otherwise.
         """
         input_is_canonical = True
         for unit_type in product:
@@ -124,12 +123,14 @@ def _canonicalize_types(products: Iterable[Dict[UnitType, int]]
                     unit_type.standard_unit_class()
                 input_is_canonical = False
 
-        if input_is_canonical:
-            # If this is the case, our input is already in canonical form and we
-            # can simply return it.
-            return False, product
+        return not input_is_canonical
 
-        # Now re-make the product using only canonical instances.
+    def _rebuild_product(product: Dict[UnitType, int]) -> Dict[UnitType, int]:
+        """
+        Re-makes an existing product using only canonical instances.
+        :param product: The product to re-build.
+        :return: The re-built product, containing only canonical instances.
+        """
         canonical_product = {}
         for unit_type, power in product.items():
             canonical_instance = type_class_to_instance[unit_type.__class__]
@@ -138,15 +139,23 @@ def _canonicalize_types(products: Iterable[Dict[UnitType, int]]
                 canonical_product[canonical_instance] = 0
             canonical_product[canonical_instance] += power
 
-        return True, canonical_product
+        return canonical_product
 
     # Canonicalize all of them using the same canonical instances.
     any_changed = False
+    for one_product in products:
+        one_not_canonical = _collect_canonical(one_product)
+        any_changed = any_changed or one_not_canonical
+
+    if not any_changed:
+        # Nothing changed, so we don't have to bother rebuilding.
+        return any_changed, products
+
+    # Re-build all products with canonical types.
     canonical_products = []
     for one_product in products:
-        one_changed, one_canonical = _canonicalize_one(one_product)
+        one_canonical = _rebuild_product(one_product)
         canonical_products.append(one_canonical)
-        any_changed = any_changed or one_changed
 
     return any_changed, canonical_products
 
@@ -374,30 +383,44 @@ def simplify_unit(to_simplify: UnitInterface,
     # Now we need to handle possible implicit conversions. We start by breaking
     # up our CompoundUnit into its component sub-units.
     numerator, denominator = flatten(to_simplify)
-    # Maps the sub-unit type classes to the sub-unit instances that use them.
-    types_to_units = {}
+
+    # Maps the sub-unit type classes to their corresponding sub-unit type
+    # instances.
+    types_to_classes = {}
+
     combined = numerator.copy()
     combined.update(denominator)
     for unit in combined:
-        if unit.type_class not in types_to_units:
-            types_to_units[unit.type_class] = []
-        types_to_units[unit.type_class].append(unit)
+        if unit.type_class not in types_to_classes:
+            types_to_classes[unit.type_class] = set()
+        types_to_classes[unit.type_class].add(unit.type)
+
+    def should_standardize(_unit: UnitInterface) -> bool:
+        """
+        Comparison function that defines when a unit should be standardized.
+        This should only be done when we have multiple unit classes that all
+        share the same unit type. (Two instances of the same unit class should
+        not prompt standardization.)
+        :param _unit: The unit to consider.
+        :return: Whether that unit should be standardized.
+        """
+        return len(types_to_classes[unit.type_class]) > 1
 
     # Figure out which units need to be standardized, and calculate the raw
     # value of the result.
     raw_value = np.asarray(1.0)
-    for unit in numerator:
+    for unit, power in numerator.items():
         to_mul = unit
-        if len(types_to_units[unit.type_class]) != 1:
+        if should_standardize(unit):
             # This needs to be converted to standard form before it can be
             # safely used.
             to_mul = unit.to_standard()
-        raw_value *= to_mul.raw
-    for unit in denominator:
+        raw_value *= (to_mul.raw ** power)
+    for unit, power in denominator.items():
         to_div = unit
-        if len(types_to_units[unit.type_class]) != 1:
+        if should_standardize(unit):
             to_div = unit.to_standard()
-        raw_value /= to_div.raw
+        raw_value /= (to_div.raw ** power)
 
     # Simplify our type. This will be what we use to create the final output
     # unit.
