@@ -1,6 +1,16 @@
 # PyUnits
 *Use Units in your Python Code*
 
+> **WARNING**: This code is still under development. Unless you are invigorated
+> by the thought of an extended correspondence with me, I would recommend
+> **against** its use for any serious *(read: paid)* project.
+
+# Installation
+
+```bash
+pip install python-pyunits
+```
+
 Here's something we've all done before:
 ```python
 length1 = 42 # Meters

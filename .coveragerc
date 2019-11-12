@@ -8,3 +8,5 @@ omit =
     venv/*
     # We don't test examples.
     examples/*
+    # Exclude setup script.
+    setup.py
