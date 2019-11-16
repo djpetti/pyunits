@@ -1,10 +1,3 @@
-# PyUnits
-*Use Units in your Python Code*
-
-> **WARNING**: This code is still under development. Unless you are invigorated
-> by the thought of an extended correspondence with me, I would recommend
-> **against** its use for any serious *(read: paid)* project.
-
 # Installation
 
 ```bash
@@ -20,6 +13,13 @@ length1 = 42 # Meters
 length2 = 12 # Inches
 result = length1 + length2 # Oops
 ```
+
+# PyUnits
+*Use Units in your Python Code*
+
+> **WARNING**: This code is still under development. Unless you are invigorated
+> by the thought of an extended correspondence with me, I would recommend
+> **against** its use for any serious *(read: paid)* project.
 
 ## Units are a pain.
 
