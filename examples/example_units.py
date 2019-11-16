@@ -29,6 +29,18 @@ class Energy(UnitType):
     """
 
 
+class Force(UnitType):
+    """
+    Type for force units.
+    """
+
+
+class Mass(UnitType):
+    """
+    Type for mass units.
+    """
+
+
 @Length.decorate
 class Meters(StandardUnit):
     """
@@ -251,6 +263,34 @@ class Joules(StandardUnit):
         See superclass for documentation.
         """
         return "J"
+
+
+@Force.decorate
+class Newtons(StandardUnit):
+    """
+    A Newtons unit.
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "N"
+
+
+@Mass.decorate
+class Kilograms(StandardUnit):
+    """
+    A Kilograms unit.
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return "kg"
 
 
 @CastHandler(Meters, Meters2D)

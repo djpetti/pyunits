@@ -62,6 +62,7 @@ class Unitless(UnitBase):
         See superclass for documentation.
         """
         if not isinstance(other, UnitInterface):
+            # Multiplying by a raw numeric value.
             # Our only concern in this case is making sure the result is a
             # Unitless value.
             return self.type(self.raw * other)
@@ -71,21 +72,22 @@ class Unitless(UnitBase):
         else:
             # We don't handle normal multiplication in this class, and instead
             # rely on the other unit's reflected multiplication operation.
-            raise NotImplementedError("Multiplication of a unitless value is"
-                                      " not implemented.")
+            return NotImplemented
 
     def __truediv__(self, other: UnitValue) -> UnitInterface:
         """
         See superclass for documentation.
         """
+        if not isinstance(other, UnitInterface):
+            # Dividing by a raw numeric value.
+            return self.type(self.raw / other)
         if isinstance(other, type(self)):
             # In this case, we just divide the raw values.
             return self.type(self.raw / other.raw)
         else:
             # We don't handle normal division in this class, and instead rely
             # on the other unit's reflected division operator.
-            raise NotImplementedError("Division of a unitless value is not "
-                                      "implemented.")
+            return NotImplemented
 
     def __rtruediv__(self, other: UnitValue) -> UnitInterface:
         # The only way that we should ever get here is if we are trying to
@@ -105,8 +107,7 @@ class Unitless(UnitBase):
         else:
             # We don't handle normal addition in this class, and instead
             # rely on the other unit's reflected addition operation.
-            raise NotImplementedError("Addition of a unitless value is"
-                                      " not implemented.")
+            return NotImplemented
 
     @classmethod
     def is_standard(cls) -> bool:

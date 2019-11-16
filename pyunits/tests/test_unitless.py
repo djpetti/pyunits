@@ -34,12 +34,12 @@ class TestUnitless:
 
     @classmethod
     @pytest.fixture
-    def mock_unit(cls) -> mock.Mock:
+    def mock_unit(cls) -> mock.MagicMock:
         """
         Creates a fake value that implements UnitInterface.
         :return: The fake unit.
         """
-        mock_unit = mock.Mock(spec=UnitInterface)
+        mock_unit = mock.MagicMock(spec=UnitInterface)
 
         # Set a fake raw value.
         mock_raw = mock.PropertyMock(return_value=cls._MOCK_UNIT_VALUE)
@@ -97,11 +97,15 @@ class TestUnitless:
         :param mock_unit: The fake Unit to multiply by.
         """
         # Arrange done in fixtures.
-        # Act and assert.
-        with pytest.raises(NotImplementedError):
-            # The fancy lambda-ing is so we don't get warnings about unused
-            # variables and such.
-            (lambda: unitless * mock_unit)()
+        # Act.
+        result = unitless * mock_unit
+
+        # Assert.
+        # The multiplication operator for the Unitless instance should have
+        # returned NotImplemented, which should have caused it to use the
+        # reflected multiplication operator on the mock.
+        mock_unit.__rmul__.assert_called_once_with(unitless)
+        assert result == mock_unit.__rmul__.return_value
 
     def test_div_numeric(self, unitless: Unitless) -> None:
         """
@@ -109,9 +113,12 @@ class TestUnitless:
         :param unitless: The Unitless value to try dividing.
         """
         # Arrange done in fixtures.
-        # Act and assert.
-        with pytest.raises(NotImplementedError, match="Division"):
-            unitless / 2.0
+        # Act.
+        result = unitless / 2.0
+
+        # Assert.
+        np.testing.assert_array_almost_equal(result.raw,
+                                             self._UNITLESS_VALUE / 2)
 
     def test_rdiv(self, unitless: Unitless) -> None:
         """
@@ -133,11 +140,15 @@ class TestUnitless:
         :param mock_unit: The fake Unit to divide by.
         """
         # Arrange done in fixtures.
-        # Act and assert.
-        with pytest.raises(NotImplementedError):
-            # The fancy lambda-ing is so we don't get warnings about unused
-            # variables and such.
-            (lambda: unitless / mock_unit)()
+        # Act.
+        result = unitless / mock_unit
+
+        # Assert.
+        # The division operator for the Unitless instance should have
+        # returned NotImplemented, which should have caused it to use the
+        # reflected division operator on the mock.
+        mock_unit.__rtruediv__.assert_called_once_with(unitless)
+        assert result == mock_unit.__rtruediv__.return_value
 
     def test_div_unitless(self, unitless: Unitless) -> None:
         """
@@ -276,8 +287,12 @@ class TestUnitless:
         :param mock_unit: The fake Unit to add to.
         """
         # Arrange done in fixtures.
-        # Act and assert.
-        with pytest.raises(NotImplementedError):
-            # The fancy lambda-ing is so we don't get warnings about unused
-            # variables and such.
-            (lambda: unitless + mock_unit)()
+        # Act.
+        result = unitless + mock_unit
+
+        # Assert.
+        # The addition operator for the Unitless instance should have
+        # returned NotImplemented, which should have caused it to use the
+        # reflected addition operator on the mock.
+        mock_unit.__radd__.assert_called_once_with(unitless)
+        assert result == mock_unit.__radd__.return_value
