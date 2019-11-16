@@ -5,12 +5,6 @@
 > by the thought of an extended correspondence with me, I would recommend
 > **against** its use for any serious *(read: paid)* project.
 
-# Installation
-
-```bash
-pip install python-pyunits
-```
-
 Here's something we've all done before:
 ```python
 length1 = 42 # Meters
@@ -19,6 +13,12 @@ length1 = 42 # Meters
 
 length2 = 12 # Inches
 result = length1 + length2 # Oops
+```
+
+## Installation
+
+```bash
+pip install python-pyunits
 ```
 
 ## Units are a pain.
