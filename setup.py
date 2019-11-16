@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="python-pyunits",
-    version="0.1rc1",
+    version="0.1rc2",
     author="Daniel Petti",
     author_email="djpetti@gmail.com",
     description="A package for making Python unit-aware.",
