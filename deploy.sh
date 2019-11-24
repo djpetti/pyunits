@@ -4,9 +4,6 @@
 
 set -e
 
-# Activate the venv.
-source venv/bin/activate
-
 # Clean out old build artifacts.
 rm -rf dist/ ./*.egg-info/ build/
 # Create the package.
