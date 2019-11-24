@@ -329,7 +329,7 @@ def simplify(to_simplify: Any,
                               .format(to_simplify))
 
 
-@simplify.register
+@simplify.register(UnitType)
 def simplify_type(to_simplify: UnitType,
                   type_factories: CompoundTypeFactories) -> UnitType:
     # Begin by flattening the input.
@@ -377,7 +377,7 @@ def simplify_type(to_simplify: UnitType,
     return un_flatten(numerator, denominator, type_factories)
 
 
-@simplify.register
+@simplify.register(UnitInterface)
 def simplify_unit(to_simplify: UnitInterface,
                   type_factories: CompoundTypeFactories) -> UnitInterface:
     # Now we need to handle possible implicit conversions. We start by breaking
