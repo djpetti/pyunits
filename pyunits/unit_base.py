@@ -20,8 +20,23 @@ class UnitBase(UnitInterface, abc.ABC):
         self.__type = my_type
 
     def __str__(self) -> str:
-        # Pretty-print the unit.
-        return "{} {}".format(self.raw, self.name)
+        # Pretty-print the unit. If the unit representation is more than one
+        # line, we want the number to show up in the middle vertically.
+        name_lines = self.name.split("\n")
+        middle_line_index = len(name_lines) // 2
+
+        number_str = str(self.raw)
+        middle_line = name_lines[middle_line_index]
+        middle_with_number = "{} {}".format(number_str, middle_line)
+
+        # Pad the other lines so that the unit representation is aligned
+        # horizontally.
+        padding = " " * (len(number_str) + 1)
+        name_lines = [padding + l for l in name_lines]
+
+        name_lines[middle_line_index] = middle_with_number
+
+        return "\n".join(name_lines)
 
     def __neg__(self) -> UnitInterface:
         return self.type(-self.raw)

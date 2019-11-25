@@ -86,3 +86,28 @@ class TestDivUnit:
 
         # Assert.
         assert name == "m\n-\ns"
+
+    def test_str(self, config: UnitConfig) -> None:
+        """
+        Tests that reading the name of a division unit as a string works.
+        :param config: The configuration to use for testing.
+        """
+        # Arrange.
+        # Set names for the sub-units.
+        mock_left_name = mock.PropertyMock(return_value="m")
+        mock_right_name = mock.PropertyMock(return_value="s")
+        type(config.mock_left_unit).name = mock_left_name
+        type(config.mock_right_unit).name = mock_right_name
+
+        # Set raw values.
+        mock_left_raw = mock.PropertyMock(return_value=1.0)
+        mock_right_raw = mock.PropertyMock(return_value=1.0)
+        type(config.mock_left_unit).raw = mock_left_raw
+        type(config.mock_right_unit).raw = mock_right_raw
+
+        # Act.
+        as_string = str(config.div_unit)
+
+        # Assert.
+        # It should be formatted correctly as three lines.
+        assert as_string == "    m\n1.0 -\n    s"
