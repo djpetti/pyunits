@@ -54,6 +54,7 @@ def unit_factory(unit_type_factory: UnitTypeFactory) -> UnitFactory:
 
         type(mock_unit).type = mock_type_property
         type(mock_unit).type_class = mock_type_class_property
+        type(mock_unit).name = mock.PropertyMock(return_value=class_name)
 
         # Set the raw value.
         raw = np.asarray(raw)

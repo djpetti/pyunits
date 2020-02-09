@@ -3,8 +3,6 @@ from typing import Callable, Dict, FrozenSet, NamedTuple, Tuple, Union
 import functools
 import unittest.mock as mock
 
-import numpy as np
-
 import pytest
 
 from pyunits.compound_units.compound_unit import CompoundUnit

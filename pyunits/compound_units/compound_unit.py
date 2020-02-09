@@ -7,6 +7,7 @@ from ..types import CompoundTypeFactories, UnitValue
 from ..unit_base import UnitBase
 from ..unit_interface import UnitInterface
 from .operations import Operation
+from .pretty_print import pretty_name
 from .unit_analysis import simplify
 from . import compound_unit_type
 
@@ -112,3 +113,10 @@ class CompoundUnit(UnitBase, abc.ABC):
         """
         my_type = cast(compound_unit_type.CompoundUnitType, self.type)
         return my_type.operation
+
+    @property
+    def name(self) -> str:
+        """
+        See superclass for documentation.
+        """
+        return pretty_name(self)

@@ -32,7 +32,7 @@ class UnitBase(UnitInterface, abc.ABC):
         # Pad the other lines so that the unit representation is aligned
         # horizontally.
         padding = " " * (len(number_str) + 1)
-        name_lines = [padding + l for l in name_lines]
+        name_lines = [padding + line for line in name_lines]
 
         name_lines[middle_line_index] = middle_with_number
 

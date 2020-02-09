@@ -29,6 +29,7 @@ class TestCompoundUnit:
         :param mock_do_div: The mocked do_div() function.
         :param mock_do_add: The mocked do_add() function.
         :param mock_simplify: The mocked simplify() function.
+        :param mock_pretty_name: The mocked pretty_name() function.
         """
         compound_unit: compound_unit.CompoundUnit
         mock_unit_type: mock.Mock
@@ -38,6 +39,7 @@ class TestCompoundUnit:
         mock_do_div: mock.Mock
         mock_do_add: mock.Mock
         mock_simplify: mock.Mock
+        mock_pretty_name: mock.Mock
 
     class ClassSpecificConfig(NamedTuple):
         """
@@ -94,7 +96,9 @@ class TestCompoundUnit:
                 mock.patch(compound_unit.__name__ + ".do_add") as \
                 mock_do_add, \
                 mock.patch(compound_unit.__name__ + ".simplify") as \
-                mock_simplify:
+                mock_simplify, \
+                mock.patch(compound_unit.__name__ + ".pretty_name") as \
+                mock_pretty_name:
             yield cls.UnitConfig(compound_unit=my_compound_unit,
                                  mock_unit_type=mock_unit_type,
                                  mock_left_unit=mock_left_unit,
@@ -102,7 +106,8 @@ class TestCompoundUnit:
                                  mock_do_mul=mock_do_mul,
                                  mock_do_div=mock_do_div,
                                  mock_do_add=mock_do_add,
-                                 mock_simplify=mock_simplify)
+                                 mock_simplify=mock_simplify,
+                                 mock_pretty_name=mock_pretty_name)
 
             # Finalization done upon exit from context manager.
 
@@ -221,6 +226,49 @@ class TestCompoundUnit:
 
         # Assert.
         assert got_operation == Operation.MUL
+
+    def test_name(self, config: UnitConfig) -> None:
+        """
+        Tests that we can get the name of the unit.
+        :param config: The configuration to use for testing.
+        """
+        # Arrange.
+        config.mock_pretty_name.return_value = "UnitName"
+
+        # Act.
+        got_name = config.compound_unit.name
+
+        # Assert.
+        assert got_name == "UnitName"
+
+    @pytest.mark.parametrize(["unit_name", "str_value"],
+                             [("Nm", "1.0 Nm"),
+                              (" m \n---\n s ", "     m \n1.0 ---\n     s ")],
+                             ids=["product", "radical"])
+    def test_str(self, config: UnitConfig, unit_name: str,
+                 str_value: str) -> None:
+        """
+        Tests that pretty-printing a unit instance works.
+        :param config: The configuration to use for testing.
+        :param unit_name: The name of the unit to use for testing.
+        :param str_value: The expected string value of the printed unit.
+        """
+        # Arrange.
+        # Fake the pretty-printed unit name.
+        config.mock_pretty_name.return_value = unit_name
+
+        # Set raw values.
+        mock_left_raw = mock.PropertyMock(return_value=1.0)
+        mock_right_raw = mock.PropertyMock(return_value=1.0)
+        type(config.mock_left_unit).raw = mock_left_raw
+        type(config.mock_right_unit).raw = mock_right_raw
+
+        # Act.
+        as_string = str(config.compound_unit)
+
+        # Assert.
+        # It should be formatted correctly as three lines.
+        assert as_string == str_value
 
     @pytest.mark.parametrize("is_reversed", [False, True],
                              ids=["normal", "reversed"])

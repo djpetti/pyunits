@@ -71,20 +71,3 @@ class TestMulUnit:
         # It should have multiplied the raw values.
         assert product == 42
 
-    def test_name(self, config: UnitConfig) -> None:
-        """
-        Tests that we can successfully get the name of the unit.
-        :param config: The configuration to use.
-        """
-        # Arrange.
-        # Set names for the sub-units.
-        mock_left_name = mock.PropertyMock(return_value="N")
-        mock_right_name = mock.PropertyMock(return_value="m")
-        type(config.mock_left_unit).name = mock_left_name
-        type(config.mock_right_unit).name = mock_right_name
-
-        # Act.
-        name = config.mul_unit.name
-
-        # Assert.
-        assert name == "Nm"
